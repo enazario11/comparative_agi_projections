@@ -1,10 +1,8 @@
 #libraries
 library(tidyverse)
 library(here)
-library(aniMotum)
 library(rnaturalearth)
 library(sf)
-library(terra)
 library(tidyquant)
 
 #read in data
@@ -25,6 +23,7 @@ theme_custom <- function(){
 
 alb <- readRDS(here("data/loc_data/alb_tag/tagsNOAAonly.rds")) %>% mutate(tag = as.character(tag), sp = "Albacore tuna")
 blu <- read.csv(here("data/loc_data/blu_tag/blsh_trk.csv"))
+blu <- readRDS(here("data/loc_data/blu_tag/blsh_bstrp_list.rds"))[[1]]
 mako <- read.csv(here("data/loc_data/mako_tag/PacificArgos.csv")) 
 #swo
 
@@ -98,5 +97,3 @@ ggplot() +
     theme_custom() + 
     theme(legend.position = "none")
 
-#all species combine
-all_sp <- rbind(alb, blu, mako)
