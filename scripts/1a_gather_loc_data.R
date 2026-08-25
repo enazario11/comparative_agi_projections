@@ -21,7 +21,7 @@ theme_custom <- function(){
        legend.position = "right")
 }
 
-alb <- readRDS(here("data/loc_data/alb_tag/tagsNOAAonly.rds")) %>% mutate(tag = as.character(tag), sp = "Albacore tuna")
+alb <- readRDS(here("data/loc_data/alb_tag/allValidTagsLocns_NOAAonly.rds")) %>% mutate(tag = as.character(tag), sp = "Albacore tuna")
 blu <- read.csv(here("data/loc_data/blu_tag/blsh_trk.csv"))
 blu <- readRDS(here("data/loc_data/blu_tag/blsh_bstrp_list.rds"))[[1]]
 mako <- read.csv(here("data/loc_data/mako_tag/PacificArgos.csv")) 
@@ -30,10 +30,11 @@ mako <- read.csv(here("data/loc_data/mako_tag/PacificArgos.csv"))
 #clean dfs
 #albacore
 alb <- alb %>% 
-  mutate(lon = ifelse(lon > 180, lon - 360, lon))
+  mutate(lon = ifelse(lon360 > 180, lon360 - 360, lon360))
 locs_alb <- alb %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326) |> 
   st_transform(crs = 3832)
+colnames(alb) <- c("tag", "date", "lc", "lon", "lat", "sp")
 
 #blue sharks
 blu <- blu %>% 
@@ -57,9 +58,9 @@ colnames(mako) <- c("tag", "date", "lon", "lat", "sp")
 #summary stats of sp tag data
 #albacore
 table(alb$tag)
-length(unique(alb$tag)) #12
+length(unique(alb$tag)) #21
 min(alb$date) # 2003-08-24
-max(alb$date) # 2012-08-23
+max(alb$date) # 2013-08-23
 
 ggplot() + 
   geom_sf(data = land_pac, fill = "grey85", color = "grey30", linewidth = 0.2) +

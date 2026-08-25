@@ -23,7 +23,6 @@ theme_custom <- function(){
 land <- ne_countries(scale = "large", returnclass = "sf")
 land_pac <- st_transform(land, crs = 3832)
 
-
 ### argos SDA filter ####
 group_sda_filter <- function (sp_df){
 
@@ -47,7 +46,7 @@ for(i in 1:length(unique(sp_df$tag))){
  return(df_clean)
 }
 
-#albacore
+#skip for albacore bc archival tags not satellite
 
 #blue sharks
 blu <- read.csv(here("data/loc_data/blu_tag/blue shark 1 per day.csv"))
@@ -122,7 +121,30 @@ return(segmented_df)
 } #end function
 
 #albacore
+alb <- readRDS(here("data/loc_data/alb_tag/allValidTagsLocns_NOAAonly.rds")) %>% 
+  mutate(tag = as.character(tag), sp = "Albacore tuna", lc = NA) %>%
+  select(c("tag", "dateRd", "lc", "lon360", "lat", "sp"))
 
+alb <- alb %>% 
+  mutate(lon = ifelse(lon360 > 180, lon360 - 360, lon360)) %>%
+  select(-c(lon360))
+
+colnames(alb) <- c("tag", "date", "lc", "lat", "sp", "lon")
+
+alb_segment <- segment_tracks(alb) 
+
+locs_alb <- alb_segment %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+  st_transform(crs = 3832)
+
+ggplot() + 
+  geom_sf(data = land_pac, fill = "grey85", color = "grey30", linewidth = 0.2) +
+  geom_sf(data = locs_alb, aes(color = tag), size = 2) +
+  coord_sf(xlim = c(st_bbox(locs_alb$geometry)[1], st_bbox(locs_alb$geometry)[3]), ylim = c(st_bbox(locs_alb$geometry)[2], st_bbox(locs_alb$geometry)[4])) +
+  theme_custom() +
+  theme(legend.position = "none")
+
+saveRDS(alb_segment, here("data/loc_data/processed/pre_ssm/alb_dat.rds"))
 
 #blue sharks
 blu_segment <- segment_tracks(blu_clean)
@@ -140,6 +162,8 @@ ggplot() +
   theme_custom() + 
   theme(legend.position = "none")
 
+saveRDS(blu_segment, here("data/loc_data/processed/pre_ssm/blu_dat.rds"))
+
 #mako sharks
 mako_segment <- segment_tracks(mako_clean)
 
@@ -152,4 +176,8 @@ ggplot() +
     theme_custom() +
     theme(legend.position = "none")
 
+saveRDS(mako_segment, here("data/loc_data/processed/pre_ssm/mako_dat.rds"))
+
 #swordfish
+
+
