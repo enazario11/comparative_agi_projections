@@ -57,7 +57,8 @@ blu <- blu %>%
   mutate(sp = "Blue sharks", 
          date2 = paste0(year, "-", mo, "-", day), 
          date2 = as.Date(date2, format = "%Y-%m-%d")) %>%
-  select(c(Shark.ID, date2, lc, long, lat, sp))
+  select(c(Shark.ID, date2, lc, long, lat, sp)) %>%
+  filter(lc != "P")
 colnames(blu) <- c("tag", "date", "lc", "lon", "lat", "sp")
 
 blu_clean <- group_sda_filter(blu)
@@ -80,7 +81,8 @@ mako <- mako %>%
   mutate(sp = "Mako sharks", 
          date = as.Date(date, format = "%m/%d/%Y"), 
          PTT = as.character(PTT)) %>% 
-         select(c(PTT, date, lc, long, lat, sp))
+         select(c(PTT, date, lc, long, lat, sp)) %>%
+  filter(lc != "D")
 
 colnames(mako) <- c("tag", "date", "lc", "lon", "lat", "sp")
 
@@ -102,7 +104,8 @@ swo <- swo %>%
   mutate(sp = "Swordfish", 
          date = as.Date(Date..dd.mm.yyyy., format = "%d/%m/%Y"), 
          Ptt = as.character(Ptt))  %>%
-         select(c(Ptt, date, Loc.Class, Longitude, Latitude, sp))
+         select(c(Ptt, date, Loc.Class, Longitude, Latitude, sp)) %>%
+         filter(Loc.Class != "Deploy" & Loc.Class != "Recapture" & Loc.Class != "Mote" & Loc.Class != "" & Loc.Class != "Z")
 colnames(swo) <- c("tag", "date", "lc", "lon", "lat", "sp")
 
 swo_clean <- group_sda_filter(swo)
@@ -204,7 +207,7 @@ saveRDS(blu_segment, here("data/loc_data/processed/pre_ssm/blu_dat.rds"))
 
   #blue shark summary stats
 table(blu_segment$tag)
-length(unique(blu_segment$tag)) #76
+length(unique(blu_segment$tag)) #60
 min(blu_segment$date) # 2002-07-01
 max(blu_segment$date) # 2015-10-25
 
@@ -224,8 +227,8 @@ saveRDS(mako_segment, here("data/loc_data/processed/pre_ssm/mako_dat.rds"))
 
   #mako summary stats
 table(mako_segment$tag)
-length(unique(mako_segment$tag)) # 116
-min(mako_segment$date) # 2003-07-03
+length(unique(mako_segment$tag)) # 115
+min(mako_segment$date) # 2003-07-04
 max(mako_segment$date) # 2016-02-03
 
 #swordfish
