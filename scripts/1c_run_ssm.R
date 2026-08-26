@@ -4,6 +4,10 @@ library(here)
 library(rnaturalearth)
 library(tidyquant)
 
+### to do 
+#1) confirm from hists the average time step between locations. Ideally step will be set to 24hr but could be longer depending on resolution.
+
+
 ### figure features ####
 # custom theme
 theme_custom <- function(){
@@ -19,11 +23,11 @@ theme_custom <- function(){
 
 # land file
 land <- ne_countries(scale = "large", returnclass = "sf")
+land <- st_transform(land, crs = 4326)
 land_pac <- st_transform(land, crs = 3832)
 
 ### fit ssm ####
 #skip albacore bc cleaning already happened -- ssm not needed
-
 #blue sharks
 
 
@@ -31,3 +35,4 @@ land_pac <- st_transform(land, crs = 3832)
 
 
 #swordfish 
+

@@ -21,20 +21,20 @@ theme_custom <- function(){
        legend.position = "right")
 }
 
-alb <- readRDS(here("data/loc_data/alb_tag/allValidTagsLocns_NOAAonly.rds")) %>% mutate(tag = as.character(tag), sp = "Albacore tuna")
-blu <- read.csv(here("data/loc_data/blu_tag/blsh_trk.csv"))
-blu <- readRDS(here("data/loc_data/blu_tag/blsh_bstrp_list.rds"))[[1]]
-mako <- read.csv(here("data/loc_data/mako_tag/PacificArgos.csv")) 
-#swo
+alb <- readRDS(here("data/loc_data/alb_tag/validTagsLocns_NOAAonly_bathym_corrected.rds")) %>% mutate(tag = as.character(tag), sp = "Albacore tuna")
+blu <- read.csv(here("data/loc_data/blu_tag/blue shark 1 per day.csv"))
+mako <- read.csv(here("data/loc_data/mako_tag/mako_spot_filtered_1_step_per_day.csv")) 
+swo <- read.csv(here("data/loc_data/swo_tag/PIER_swordfish_tag_data_exp_EM.csv"))
 
 #clean dfs
 #albacore
 alb <- alb %>% 
   mutate(lon = ifelse(lon360 > 180, lon360 - 360, lon360))
+
 locs_alb <- alb %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326) |> 
   st_transform(crs = 3832)
-colnames(alb) <- c("tag", "date", "lc", "lon", "lat", "sp")
+
 
 #blue sharks
 blu <- blu %>% 
@@ -54,6 +54,14 @@ mako <- mako %>%
          date = as.Date(date, format = "%Y-%m-%d")) %>%
   select(-c(lc))
 colnames(mako) <- c("tag", "date", "lon", "lat", "sp")
+
+#swordfish 
+swo <- swo %>%
+  mutate(sp = "Swordfish", 
+         date = as.Date(Date..dd.mm.yyyy., format = "%d/%m/%Y"), 
+         Ptt = as.character(Ptt))  %>%
+         select(c(Ptt, date, Loc.Class, Longitude, Latitude, sp))
+colnames(swo) <- c("tag", "date", "lc", "lon", "lat", "sp")
 
 #summary stats of sp tag data
 #albacore
@@ -98,3 +106,17 @@ ggplot() +
     theme_custom() + 
     theme(legend.position = "none")
 
+#swordfish 
+table(swo$tag) 
+length(unique(swo$tag)) #57
+min(swo$date) # 2017-10-25
+max(swo$date) # 2026-01-06
+
+ggplot() + 
+    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    coord_sf(xlim = c(min(swo$lon) - 2, max(swo$lon) + 2),
+      ylim = c(min(swo$lat) - 2, max(swo$lat) + 2),
+      expand = FALSE) +
+    geom_point(data = swo, aes(lon, lat, color = tag)) + 
+    theme_custom() + 
+    theme(legend.position = "none")
