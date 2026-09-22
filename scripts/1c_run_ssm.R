@@ -5,6 +5,7 @@ library(sf)
 library(rnaturalearth)
 library(tidyquant)
 library(aniMotum)
+set.seed(0902)
 
 ### figure features ####
 # custom theme
@@ -99,7 +100,7 @@ aniMotum::map(blu_ssm_r, what = "predicted")|aniMotum::map(blu_ssm_r, what = "re
 saveRDS(blu_ssm_r, "data/loc_data/processed/ssm/blu_ssm.rds")
 
 #apply keep windows filter
-blu_ssm_df <- grab(blu_ssm_r, what = "predicted")
+blu_ssm_df <- grab(blu_ssm_r, what = "rerouted")
 
 blu_ssm_clean <- blu_ssm_df %>%
   inner_join(bind_rows(blu_windows), 
@@ -124,8 +125,6 @@ plot(resid_blu, type = "acf", pages = 0)
 plot(resid_blu, type = "ts", pages = 0)
 
 #mako sharks
-mako <- readRDS(here("data/loc_data/processed/pre_ssm/mako_dat.rds")) 
-
 mako %>%
   group_by(id) %>%
   arrange(id, date) %>%
@@ -153,7 +152,7 @@ aniMotum::map(mako_ssm_r, what = "predicted")|aniMotum::map(mako_ssm_r, what = "
 saveRDS(mako_ssm_r, "data/loc_data/processed/ssm/mako_ssm.rds")
 
 #apply keep windows filter
-mako_ssm_df <- grab(mako_ssm_r, what = "predicted")
+mako_ssm_df <- grab(mako_ssm_r, what = "rerouted")
 
 mako_ssm_clean <- mako_ssm_df %>%
   inner_join(bind_rows(mako_windows), 
@@ -197,14 +196,14 @@ swo_ssm <- fit_ssm(swo,
 #look at outputs
 summary(swo_ssm)
 plot(swo_ssm[1:4,], what = "predicted", type = 1, pages = 1)
-plot(swo_ssm[2,], what = "predicted", type = 2)
+plot(swo_ssm[1,], what = "predicted", type = 2)
 
 swo_ssm_r <- route_path(swo_ssm, what = "predicted")
 aniMotum::map(swo_ssm_r, what = "predicted")|aniMotum::map(swo_ssm_r, what = "rerouted")  
 saveRDS(swo_ssm_r, "data/loc_data/processed/ssm/swo_ssm.rds")
 
 #apply keep windows filter
-swo_ssm_df <- grab(swo_ssm_r, what = "predicted")
+swo_ssm_df <- grab(swo_ssm_r, what = "rerouted")
 
 swo_ssm_clean <- swo_ssm_df %>%
   inner_join(bind_rows(swo_windows), 

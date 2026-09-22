@@ -6,9 +6,14 @@ library(terra)
 library(rnaturalearth)
 library(tidyquant)
 library(aniMotum)
+set.seed(0902)
 
 #TO DO 
 #1) apply keep window filter to PA locs
+#2) remove presences on land and the corresponding absences by date
+#3) remove presences and pseudo-absences outside of the MOM6 domain
+#4) get pseudo-absences to a 1:1 ratio.
+#5) Check process for albacore? Run SSM and then generate PAs?
 
 #load re-routed SSMs
 blu <- readRDS("data/loc_data/processed/ssm/blu_ssm.rds")
@@ -41,49 +46,31 @@ min(swo_ssm$lat) - 2 #-5.3
 max(swo_ssm$lat) + 2 #51.1
 min(swo_ssm$lon) - 2 #-168.4
 
-### create distance gradient for PA generation ####
-#get bounding polygon for MOM6 domain 
-ylims <- c(0, 55)
-xlims <- c(-170, -110)
-box_coords <- tibble(x = xlims, y = ylims) %>% 
-  st_as_sf(coords = c("x", "y")) %>% 
-  st_set_crs(st_crs(4326))
+### PA generation ####
+#### blue sharks ######
+blu_pa <- sim_fit(blu[1,], what = "predicted", reps = 100)
+blu_pa_filt <- sim_filter(blu_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
+blu_pa_r <- route_path(blu_pa_filt, centroids = TRUE)
 
-domain <- st_bbox(box_coords) %>% st_as_sfc()
+plot(blu_pa_r[1,])
+saveRDS(blu_pa_r, here("data/loc_data/processed/pa/blu_pa_routed.rds"))
 
-land <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
-land <- st_transform(land, crs = 4326)
-land_vect <- vect(land)
+#### mako sharks #####
+mako_pa <- sim_fit(mako, what = "predicted", reps = 100)
+mako_pa_filt <- sim_filter(mako_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
+mako_pa_r <- route_path(mako_pa_filt, centroids = TRUE)
 
-land_subset <- st_intersection(land, domain)
-plot(land_subset)
+plot(mako_pa_r[4,])
+saveRDS(mako_pa_r, here("data/loc_data/processed/pa/mako_pa_routed.rds"))
 
-grad_poly <- st_difference(domain, land_subset)
-plot(grad_poly)
+#### swordfish#####
+swo_pa <- sim_fit(swo[1,], what = "predicted", reps = 100)
+swo_pa_filt <- sim_filter(swo_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
+swo_pa_r <- route_path(swo_pa_filt, centroids = TRUE)
 
-df <- data.frame(id = seq(length(grad_poly)))
-df$geometry <- grad_poly
-grad_sf <- st_as_sf(df)
+plot(swo_pa_r[1,])
+saveRDS(swo_pa_r, here("data/loc_data/processed/pa/swo_pa_routed.rds"))
 
-grad_spatVect <- vect(grad_poly)
 
-#create shape that's larger than the domain
-large_rast <- rast(
-  crs = "EPSG:4326", 
-  extent = ext(-180, -80, -10, 70), 
-  resolution = 0.25
-)
 
-#create 2D gradient
-#create 2D gradient
-x <- rasterize(grad_spatVect, large_rast, fun = "mean") 
-dist <- distance(x)
 
-# create gradient rasters
-x1 <- terrain(dist, v = "slope", unit = "radians")
-y1 <- terrain(dist, v = "aspect", unit = "radians")
-grad.x <- -1 * x1 * cos(0.5 * pi - y1)
-grad.y <- -1 * x1 * sin(0.5 * pi - y1)
-grad <- c(grad.x, grad.y)
-
-plot(grad)
