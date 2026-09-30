@@ -27,6 +27,7 @@ swo <- readRDS("data/loc_data/processed/ssm/swo_ssm.rds")
 #albacore
 alb <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
   mutate(lon = ifelse(lon > 180, lon - 360, lon))
+colnames(alb) <- c("id", "date", "sp", "lon", "lat")
 min(alb$lat) - 2 #23.1
 max(alb$lat) + 2 #54.6
 min(alb$lon) - 2 #-182.0
@@ -50,6 +51,33 @@ max(swo_ssm$lat) + 2 #51.1
 min(swo_ssm$lon) - 2 #-168.4
 
 ### PA generation ####
+#### albacore #####
+alb_pa <- data.frame()
+alb <- alb %>% group_by(id) %>% arrange(date) %>% ungroup()
+for(i in 1:length(unique(alb$id))){
+  curr_id = unique(alb$id)[i]
+  curr_dat <- alb %>% filter(id == curr_id)
+
+  start_loc <- curr_dat[1, c("lon", "lat")]
+  start_date <- curr_dat$date[1]
+
+  #fit PAs
+  curr_pa <- replicate(100, sim(N = nrow(curr_dat), 
+                 model = "crw",
+                 ts = 24,
+                 start = list(c(start_loc$lon, start_loc$lat),
+                              as.POSIXct(format(start_date), tz = "PST8PDT")), 
+                 vmax = 4), simplify = FALSE)
+
+  for(i in seq_along(curr_pa)){
+    curr_pa[[i]]$rep = i
+    }
+  
+  all_pa <- do.call(rbind, curr_pa) %>% mutate(id = curr_id, loc_type = "absence") %>% select(c("id", "rep", "date", "lon", "lat", "loc_type"))
+}
+
+
+
 #### blue sharks ######
 blu_pa <- sim_fit(blu, what = "predicted", reps = 100)
 blu_pa_filt <- sim_filter(blu_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology

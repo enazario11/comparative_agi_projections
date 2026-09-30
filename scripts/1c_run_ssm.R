@@ -26,6 +26,16 @@ land <- ne_countries(scale = "large", returnclass = "sf") %>% st_make_valid() %>
 land <- st_transform(land, crs = 4326)
 
 ### load sp data
+alb <- readRDS("data/loc_data/alb_tag/validTagsLocns_NOAAonly_bathym_corrected.rds")
+alb %>%
+  group_by(tag) %>%
+  arrange(tag, dateRd) %>%
+  mutate(diff = dateRd - lag(dateRd), 
+         diff_hours = as.numeric(diff, units = "hours")) %>%
+  summarise(med_diff = median(diff_hours, na.rm = T), 
+            sd_diff = sd(diff_hours, na.rm = TRUE)) %>% 
+  print(n = 50) #average step is 24 hours
+
 blu <- readRDS("data/loc_data/processed/pre_ssm/blu_dat.rds") %>% filter(lc != "P" & lc != "D")
 colnames(blu) <- c("id", "date", "lc", "sp", "lon", "lat")
 
