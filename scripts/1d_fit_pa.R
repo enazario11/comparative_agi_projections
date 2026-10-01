@@ -28,6 +28,7 @@ swo <- readRDS("data/loc_data/processed/ssm/swo_ssm.rds")
 alb <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
   mutate(lon = ifelse(lon > 180, lon - 360, lon))
 colnames(alb) <- c("id", "date", "sp", "lon", "lat")
+
 min(alb$lat) - 2 #23.1
 max(alb$lat) + 2 #54.6
 min(alb$lon) - 2 #-182.0
@@ -52,20 +53,24 @@ min(swo_ssm$lon) - 2 #-168.4
 
 ### PA generation ####
 #### albacore #####
+  #have to use in house function bc tracks already regularized and light-level geolocations without error so cannot fit_ssm with animotum. sim() not producing expected lat/lon values either. 
 alb_pa <- data.frame()
 alb <- alb %>% group_by(id) %>% arrange(date) %>% ungroup()
+
 for(i in 1:length(unique(alb$id))){
   curr_id = unique(alb$id)[i]
   curr_dat <- alb %>% filter(id == curr_id)
 
   start_loc <- curr_dat[1, c("lon", "lat")]
+  loc <- st_as_sf(start_loc, coords = c("lon", "lat"), crs = 4326)
+  loc_m  <- st_transform(loc, crs = "+proj=merc +units=km +datum=WGS84") %>% bind_cols(st_coordinates(.)) %>% st_drop_geometry()
   start_date <- curr_dat$date[1]
 
   #fit PAs
   curr_pa <- replicate(100, sim(N = nrow(curr_dat), 
                  model = "crw",
                  ts = 24,
-                 start = list(c(start_loc$lon, start_loc$lat),
+                 start = list(c(loc_m$X, loc_m$Y),
                               as.POSIXct(format(start_date), tz = "PST8PDT")), 
                  vmax = 4), simplify = FALSE)
 
@@ -73,10 +78,11 @@ for(i in 1:length(unique(alb$id))){
     curr_pa[[i]]$rep = i
     }
   
-  all_pa <- do.call(rbind, curr_pa) %>% mutate(id = curr_id, loc_type = "absence") %>% select(c("id", "rep", "date", "lon", "lat", "loc_type"))
+  all_curr_pa <- do.call(rbind, curr_pa) %>% mutate(id = curr_id, loc_type = "absence") %>% dplyr::select(c("id", "rep", "date", "lon", "lat", "loc_type"))
+  alb_pa <- rbind(alb_pa, all_curr_pa)
 }
 
-
+saveRDS(alb_pa, here("data/loc_data/processed/pa/alb_pa.rds"))
 
 #### blue sharks ######
 blu_pa <- sim_fit(blu, what = "predicted", reps = 100)
@@ -105,7 +111,15 @@ saveRDS(swo_pa_r, here("data/loc_data/processed/pa/swo_pa_routed.rds"))
 #### remove locations in gap windows, on land, and outside of study domain ####
 #combine rerouted presences and PAs into one df, then make locs a spatial feature
 #albacore 
+alb_locs <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
+  mutate(lon = ifelse(lon > 180, lon - 360, lon), 
+         loc_type = "presence", 
+         rep = NA)
+colnames(alb_locs) <- c("id", "date", "sp", "lon", "lat", "loc_type", "rep")
+alb_pa <- readRDS(here("data/loc_data/processed/pa/alb_pa.rds")) %>%
+  mutate(sp = "Albacore tuna")
 
+alb <- rbind(alb_locs, alb_pa) %>% st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
 #blue sharks
 blu_locs <- readRDS(here("data/loc_data/processed/ssm/blu_ssm.rds")) %>% 
@@ -148,7 +162,11 @@ swo <- rbind(swo_locs, swo_pa) %>% st_as_sf(coords = c("lon", "lat"), crs = 4326
 
 #### Gap windows #####
 #albacore
+alb_windows <- keep_windows(alb_locs)
 
+alb_no_gaps <- alb %>%
+  inner_join(bind_rows(alb_windows), 
+             by = join_by(id, between(date, start_time, end_time)))
 
 #blue sharks
 blu_raw <- readRDS("data/loc_data/processed/pre_ssm/blu_dat.rds") %>% filter(lc != "P" & lc != "D")
@@ -168,7 +186,6 @@ mako_no_gaps <- mako %>%
   inner_join(bind_rows(mako_windows), 
              by = join_by(id, between(date, start_time, end_time)))
 
-
 #swordfish
 swo_raw <- readRDS("data/loc_data/processed/pre_ssm/swo_dat.rds") %>% filter(lc != "P" & lc != "D")
 colnames(swo_raw) <- c("id", "date", "lc", "sp", "lon", "lat")
@@ -182,7 +199,15 @@ swo_no_gaps <- swo %>%
 land_union <- st_union(land) #speeds up st_filter
 
 #albacore 
+alb_no_land <- st_filter(alb_no_gaps, land_union, .predicate = st_disjoint)
 
+ggplot() + 
+    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = alb_no_land, aes(color = loc_type)) + 
+    coord_sf(xlim = c(-170, -100),
+      ylim = c(0, 55),
+      expand = FALSE) +
+    theme_bw() 
 
 #blue sharks
 blu_no_land <- st_filter(blu_no_gaps, land_union, .predicate = st_disjoint)
@@ -206,7 +231,6 @@ ggplot() +
       expand = FALSE) +
     theme_bw() 
 
-
 #swordfish
 swo_no_land <- st_filter(swo_no_gaps, land_union, .predicate = st_disjoint)
 
@@ -228,7 +252,15 @@ ggplot() +
 bbox <- st_bbox(c(xmin = -170, ymin = 0, xmax = -100, ymax = 55), crs = 4326)
 
 #albacore
+alb_domain <- st_filter(alb_no_land, st_as_sfc(bbox), .predicate = st_within)
 
+ggplot() + 
+    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = alb_domain, aes(color = loc_type)) + 
+    coord_sf(xlim = c(-175, -98),
+      ylim = c(-5, 60),
+      expand = FALSE) +
+    theme_bw() 
 
 #blue sharks
 blu_domain <- st_filter(blu_no_land, st_as_sfc(bbox), .predicate = st_within)
@@ -288,7 +320,18 @@ for(i in 1:length(unique(sp_dat$id))){
 } #end function
 
 #albacore 
+alb_pres_abs <- pa_ratio(alb_domain)
 
+ggplot() + 
+    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = test, aes(color = loc_type), size = 2, alpha = 0.8) + 
+    coord_sf(xlim = c(-175, -98),
+      ylim = c(-5, 60),
+      expand = FALSE) +
+    theme_bw() +
+  scale_color_manual(values = c("#77ABD9", "dodgerblue4"))
+
+saveRDS(alb_pres_abs, here("data/loc_data/processed/pres_abs/alb_pres_abs.rds"))
 
 #blue sharks
 blu_pres_abs <- pa_ratio(blu_domain)
