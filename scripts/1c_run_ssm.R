@@ -36,7 +36,8 @@ alb %>%
             sd_diff = sd(diff_hours, na.rm = TRUE)) %>% 
   print(n = 50) #average step is 24 hours
 
-blu <- readRDS("data/loc_data/processed/pre_ssm/blu_dat.rds") %>% filter(lc != "P" & lc != "D")
+blu <- readRDS("data/loc_data/processed/pre_ssm/blu_dat.rds") %>% filter(lc != "P" & lc != "D") %>%
+  mutate(lon = ifelse(lon > 180, lon - 360, lon))
 colnames(blu) <- c("id", "date", "lc", "sp", "lon", "lat")
 
 mako <- readRDS("data/loc_data/processed/pre_ssm/mako_dat.rds")
@@ -61,6 +62,7 @@ blu %>%
   summarise(med_diff = median(diff_hours, na.rm = T)) %>%
   ungroup() %>%
   summarise(all_mean = mean(med_diff)) #average time step btwn positions for all tracks is 43 hours
+
 
 blu_ssm <- fit_ssm(blu, 
                    vmax = 3, #Poisson et al., 2024 Fish. Res. 

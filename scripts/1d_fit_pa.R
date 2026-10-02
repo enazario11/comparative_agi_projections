@@ -6,25 +6,27 @@ library(terra)
 library(rnaturalearth)
 library(tidyquant)
 library(aniMotum)
+library(pathroutr)
 source(here("functions/keep_windows.R"))
 source(here("functions/CRW_PA.R"))
+source(here("functions/reroute_pathroutr.R"))
 set.seed(0902)
 
 # land file
 land <- ne_countries(scale = "large", returnclass = "sf") %>% st_make_valid() 
 land <- st_transform(land, crs = 4326)
 
-#load re-routed SSMs
-blu <- readRDS("data/loc_data/processed/ssm/blu_ssm.rds")
+#load re-routed location data
+alb <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
+  mutate(lon = ifelse(lon > 180, lon - 360, lon))
+colnames(alb) <- c("id", "date", "sp", "lon", "lat")
+
+blu <- readRDS("data/loc_data/processed/ssm/blu_ssm_test.rds")
 mako <- readRDS("data/loc_data/processed/ssm/mako_ssm.rds")
 swo <- readRDS("data/loc_data/processed/ssm/swo_ssm.rds")
 
 #get min/max lats across species to filter domain down to 
 #albacore
-alb <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
-  mutate(lon = ifelse(lon > 180, lon - 360, lon))
-colnames(alb) <- c("id", "date", "sp", "lon", "lat")
-
 min(alb$lat) - 2 #23.1
 max(alb$lat) + 2 #54.6
 min(alb$lon) - 2 #-182.0
@@ -137,15 +139,16 @@ plot(grad)
 #### blue sharks ######
 blu_pa <- sim_fit(blu, what = "predicted", reps = 100, grad = grad)
 blu_pa_filt <- sim_filter(blu_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
-blu_pa_r <- route_path(blu_pa_filt, centroids = TRUE)
+blu_pa_r <- run_reroute(blu_pa_filt)
 
-plot(blu_pa_r[1,])
+plot(blu_pa_r)
+
 saveRDS(blu_pa_r, here("data/loc_data/processed/pa/blu_pa_routed.rds"))
 
 #### mako sharks #####
 mako_pa <- sim_fit(mako, what = "predicted", reps = 100, grad = grad)
 mako_pa_filt <- sim_filter(mako_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
-mako_pa_r <- route_path(mako_pa_filt, centroids = TRUE)
+mako_pa_r <- run_reroute(mako_pa_filt)
 
 plot(mako_pa_r[4,])
 saveRDS(mako_pa_r, here("data/loc_data/processed/pa/mako_pa_routed.rds"))
@@ -153,7 +156,7 @@ saveRDS(mako_pa_r, here("data/loc_data/processed/pa/mako_pa_routed.rds"))
 #### swordfish#####
 swo_pa <- sim_fit(swo, what = "predicted", reps = 100, grad = grad)
 swo_pa_filt <- sim_filter(swo_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
-swo_pa_r <- route_path(swo_pa_filt, centroids = TRUE)
+swo_pa_r <- run_reroute(swo_pa_filt)
 
 plot(swo_pa_r[1,])
 saveRDS(swo_pa_r, here("data/loc_data/processed/pa/swo_pa_routed.rds"))
@@ -176,39 +179,45 @@ blu_locs <- readRDS(here("data/loc_data/processed/ssm/blu_ssm.rds")) %>%
   grab(what = "rerouted") %>%
   mutate(loc_type = "presence", 
          rep = NA) %>%
-  select(-c("x", "y", "x.se", "y.se"))
+  dplyr::select(-c("x", "y", "x.se", "y.se")) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
 blu_pa <- readRDS(here("data/loc_data/processed/pa/blu_pa_routed.rds")) %>% 
-  unnest(sims) %>%
   mutate(loc_type = "absence") %>%
-  select(-c("x", "y", "model"))
+  filter(rep != 0) %>%
+  dplyr::select(-c("fid", "lon", "lat")) %>%
+  st_transform(crs = 4326)
 
-blu <- rbind(blu_locs, blu_pa) %>% st_as_sf(coords = c("lon", "lat"), crs = 4326)
+blu <- rbind(blu_locs, blu_pa) 
 
 #mako sharks
 mako_locs <- readRDS(here("data/loc_data/processed/ssm/mako_ssm.rds")) %>% 
   grab(what = "rerouted") %>%
   mutate(loc_type = "presence", 
          rep = NA) %>%
-  select(-c("x", "y", "x.se", "y.se"))
+  dplyr::select(-c("x", "y", "x.se", "y.se")) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
 mako_pa <- readRDS(here("data/loc_data/processed/pa/mako_pa_routed.rds")) %>% 
-  unnest(sims) %>%
   mutate(loc_type = "absence") %>%
-  select(-c("x", "y", "model"))
+  filter(rep != 0) %>%
+  dplyr::select(-c("fid", "lon", "lat")) %>%
+  st_transform(crs = 4326)
 
-mako <- rbind(mako_locs, mako_pa) %>% st_as_sf(coords = c("lon", "lat"), crs = 4326)
+mako <- rbind(mako_locs, mako_pa) 
 
 #swordfish
 swo_locs <- readRDS(here("data/loc_data/processed/ssm/swo_ssm.rds")) %>% 
   grab(what = "rerouted") %>%
   mutate(loc_type = "presence", 
          rep = NA) %>%
-  select(-c("x", "y", "x.se", "y.se"))
+  dplyr::select(-c("x", "y", "x.se", "y.se")) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
 swo_pa <- readRDS(here("data/loc_data/processed/pa/swo_pa_routed.rds")) %>% 
-  unnest(sims) %>%
   mutate(loc_type = "absence") %>%
-  select(-c("x", "y", "model"))
+  filter(rep != 0) %>%
+  dplyr::select(-c("fid", "lon", "lat")) %>%
+  st_transform(crs = 4326)
 
-swo <- rbind(swo_locs, swo_pa) %>% st_as_sf(coords = c("lon", "lat"), crs = 4326)
+swo <- rbind(swo_locs, swo_pa) 
 
 #### Gap windows #####
 #albacore
@@ -246,8 +255,6 @@ swo_no_gaps <- swo %>%
              by = join_by(id, between(date, start_time, end_time)))
 
 #### Land and domain filter #####
-land_union <- st_union(land) #speeds up st_filter
-
 land_dom_filt <- function(sp_dat){
   pa_dat <- sp_dat %>% filter(loc_type == "absence")
   loc_dat <- sp_dat %>% filter(loc_type == "presence")
@@ -260,20 +267,22 @@ land_dom_filt <- function(sp_dat){
     mutate(domain_intersect = any(st_intersects(geometry, bbox, sparse = FALSE)), 
            omit_keep = if_else(domain_intersect, "keep", "omit")) %>%
     filter(!any(omit_keep == "omit")) %>%
-    select(-c("domain_intersect", "omit_keep"))
+    dplyr::select(-c("domain_intersect", "omit_keep"))
 
   #filter tracks that overlap with land
+  land_union <- st_union(land) %>% #speeds up st_filter
+                st_transform(crs(sp_dat))
+  
   pa_dat_land <- pa_dat_dom %>%
     mutate(land_intersect = any(st_intersects(geometry, land_union, sparse = FALSE)), 
-           omit_keep = if_else(land_intersect, "keep", "omit")) %>%
+           omit_keep = if_else(land_intersect, "omit", "keep")) %>% #keep the locations that do not intersect with land
     filter(!any(omit_keep == "omit")) %>%
-    select(-c("land_intersect", "omit_keep"))
+    dplyr::select(-c("land_intersect", "omit_keep"))
 
   all_dat <- rbind(loc_dat, pa_dat_land)
 
   return(all_dat)
 }
-
 
 #albacore 
 alb_filter <- land_dom_filt(alb_no_gaps)
@@ -288,36 +297,15 @@ ggplot() +
 
 #blue sharks
 blu_filter <- land_dom_filt(blu_no_gaps)
-
-ggplot() + 
-    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
-    geom_sf(data = blu_filter, aes(color = loc_type)) + 
-    coord_sf(xlim = c(-170, -100),
-      ylim = c(0, 55),
-      expand = FALSE) +
-    theme_bw() 
+plot(blu_filter[1,])
 
 #mako sharks
 mako_filter <- land_dom_filt(mako_no_gaps)
-
-ggplot() + 
-    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
-    geom_sf(data = mako_filter, aes(color = loc_type)) + 
-    coord_sf(xlim = c(-170, -100),
-      ylim = c(0, 55),
-      expand = FALSE) +
-    theme_bw() 
+plot(mako_filter[1,])
 
 #swordfish
 swo_filter <- land_dom_filt(swo_no_gaps)
-
-ggplot() + 
-    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
-    geom_sf(data = swo_filter, aes(color = loc_type)) + 
-    coord_sf(xlim = c(-170, -100),
-      ylim = c(0, 55),
-      expand = FALSE) +
-    theme_bw() 
+plot(swo_filter[1,])
 
 #### randomly sample PAs to get 1:1 with presences #####
 pa_ratio <- function(sp_dat, ratio = 1){
@@ -335,7 +323,9 @@ for(i in 1:length(unique(sp_dat$id))){
 
   pres_df = temp_dat %>% filter(loc_type == "presence")
   abs_df = temp_dat %>% filter(loc_type == "absence")
-  abs_df_sub = abs_df[sample(nrow(abs_df), size = num_presence*ratio, replace = FALSE), ]
+  abs_id = sample(unique(abs_df$rep), ratio, replace = FALSE)
+  abs_df_sub <- abs_df[abs_df$rep %in% abs_id, ]
+
 
   pres_abs_temp <- rbind(pres_df, abs_df_sub)
 
@@ -360,10 +350,12 @@ ggplot() +
 saveRDS(alb_pres_abs, here("data/loc_data/processed/pres_abs/alb_pres_abs.rds"))
 
 #blue sharks
+land_union <- st_union(land) %>% #speeds up st_filter
+              st_transform(crs(blu_filter)) #should be the same for the other two species
 blu_pres_abs <- pa_ratio(blu_filter)
 
 ggplot() + 
-    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
     geom_sf(data = blu_pres_abs, aes(color = loc_type), size = 2, alpha = 0.8) + 
     coord_sf(xlim = c(-175, -98),
       ylim = c(-5, 60),
@@ -377,7 +369,7 @@ saveRDS(blu_pres_abs, here("data/loc_data/processed/pres_abs/blu_pres_abs.rds"))
 mako_pres_abs <- pa_ratio(mako_filter)
 
 ggplot() + 
-    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
     geom_sf(data = mako_pres_abs, aes(color = loc_type), size = 2, alpha = 0.8) + 
     coord_sf(xlim = c(-175, -98),
       ylim = c(-5, 60),
@@ -391,7 +383,7 @@ saveRDS(mako_pres_abs, here("data/loc_data/processed/pres_abs/mako_pres_abs.rds"
 swo_pres_abs <- pa_ratio(swo_filter)
 
 ggplot() + 
-    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
     geom_sf(data = swo_pres_abs, aes(color = loc_type), size = 2, alpha = 0.8) + 
     coord_sf(xlim = c(-175, -98),
       ylim = c(-5, 60),
