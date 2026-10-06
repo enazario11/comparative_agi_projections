@@ -119,7 +119,7 @@ grad_spatVect <- vect(grad_poly)
   #domain that is x3 area of ROMS domain
 CMEMS_large_rast <- rast(
   crs = "+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=km +no_defs",
-  extent = ext(-18924.31, -9448.548, -2016.141, 10116.68), 
+  extent = ext(-19926.19, -9448.548, -2016.141, 10116.68), #-179, -84, -17, 66
   resolution =  32.01272
 )
 
@@ -150,7 +150,7 @@ mako_pa <- sim_fit(mako, what = "predicted", reps = 100, grad = grad)
 mako_pa_filt <- sim_filter(mako_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
 mako_pa_r <- run_reroute(mako_pa_filt)
 
-plot(mako_pa_r[4,])
+plot(mako_pa_r)
 saveRDS(mako_pa_r, here("data/loc_data/processed/pa/mako_pa_routed.rds"))
 
 #### swordfish#####
@@ -158,7 +158,7 @@ swo_pa <- sim_fit(swo, what = "predicted", reps = 100, grad = grad)
 swo_pa_filt <- sim_filter(swo_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
 swo_pa_r <- run_reroute(swo_pa_filt)
 
-plot(swo_pa_r[1,])
+plot(swo_pa_r)
 saveRDS(swo_pa_r, here("data/loc_data/processed/pa/swo_pa_routed.rds"))
 
 #### remove locations in gap windows, and tracks that have locations on land and outside of study domain ####
@@ -265,7 +265,7 @@ land_dom_filt <- function(sp_dat){
   pa_dat_dom <- pa_dat %>%
     group_by(id, rep) %>%
     mutate(domain_intersect = any(st_intersects(geometry, bbox, sparse = FALSE)), 
-           omit_keep = if_else(domain_intersect, "keep", "omit")) %>%
+           omit_keep = if_else(domain_intersect, "keep", "omit")) %>% #keep the locations that do intersect with the bb
     filter(!any(omit_keep == "omit")) %>%
     dplyr::select(-c("domain_intersect", "omit_keep"))
 
@@ -297,15 +297,15 @@ ggplot() +
 
 #blue sharks
 blu_filter <- land_dom_filt(blu_no_gaps)
-plot(blu_filter[1,])
+plot(blu_filter)
 
 #mako sharks
 mako_filter <- land_dom_filt(mako_no_gaps)
-plot(mako_filter[1,])
+plot(mako_filter)
 
 #swordfish
 swo_filter <- land_dom_filt(swo_no_gaps)
-plot(swo_filter[1,])
+plot(swo_filter)
 
 #### randomly sample PAs to get 1:1 with presences #####
 pa_ratio <- function(sp_dat, ratio = 1){
@@ -323,6 +323,9 @@ for(i in 1:length(unique(sp_dat$id))){
 
   pres_df = temp_dat %>% filter(loc_type == "presence")
   abs_df = temp_dat %>% filter(loc_type == "absence")
+  abs_df_sub = abs_df %>% count(rep) %>% mutate(diff = abs(n - nrow(pres_df))) %>% slice_min(order_by = diff, n = 10) %>% pull(rep)    # get reps with top 10 closest number rows to observed locations
+  abs_df = abs_df %>% filter(rep %in% abs_df_sub)
+
   abs_id = sample(unique(abs_df$rep), ratio, replace = FALSE)
   abs_df_sub <- abs_df[abs_df$rep %in% abs_id, ]
 
@@ -352,7 +355,7 @@ saveRDS(alb_pres_abs, here("data/loc_data/processed/pres_abs/alb_pres_abs.rds"))
 #blue sharks
 land_union <- st_union(land) %>% #speeds up st_filter
               st_transform(crs(blu_filter)) #should be the same for the other two species
-blu_pres_abs <- pa_ratio(blu_filter)
+blu_pres_abs <- pa_ratio(blu_filter, ratio = 2)
 
 ggplot() + 
     geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -366,7 +369,7 @@ ggplot() +
 saveRDS(blu_pres_abs, here("data/loc_data/processed/pres_abs/blu_pres_abs.rds"))
 
 #mako sharks
-mako_pres_abs <- pa_ratio(mako_filter)
+mako_pres_abs <- pa_ratio(mako_filter, ratio = 2)
 
 ggplot() + 
     geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -380,7 +383,7 @@ ggplot() +
 saveRDS(mako_pres_abs, here("data/loc_data/processed/pres_abs/mako_pres_abs.rds"))
 
 #swordfish
-swo_pres_abs <- pa_ratio(swo_filter)
+swo_pres_abs <- pa_ratio(swo_filter, ratio = 2)
 
 ggplot() + 
     geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -391,6 +394,6 @@ ggplot() +
     theme_bw() +
   scale_color_manual(values = c("#77ABD9", "dodgerblue4"))
 
-saveRDS(swo_pres_abs, here("data/loc_data/processed/pres_abs/swo_pres_abs.rds"))
+saveRDS(swo_pres_abs, here("data/loc_data/processed/pres_abs/swo_pres_abs.rds")) 
 
 
