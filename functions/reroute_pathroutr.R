@@ -19,10 +19,14 @@ safe_reroute <- function(d, land_region, vis_graph) {
            })
 }
 
-run_reroute <- function(sp_filt) {
-  sim_df <- sp_filt %>%
+run_reroute <- function(sp_filt, sp = NULL) {
+  if(is.null(sp)){
+    sim_df <- sp_filt %>%
     unnest(cols = sims) %>%
     dplyr::select(id, rep, date, lon, lat)
+  } else if(sp == "albacore"){
+    sim_df <- sp_filt %>% dplyr::select(id, rep, date, lon, lat)
+  }
 
   pts <- st_as_sf(sim_df, coords = c("lon", "lat"), crs = 4326, remove = FALSE) %>%
     st_transform(3857)

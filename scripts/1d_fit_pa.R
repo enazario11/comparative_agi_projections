@@ -7,13 +7,16 @@ library(rnaturalearth)
 library(tidyquant)
 library(aniMotum)
 library(pathroutr)
+library(adehabitatLT)
 source(here("functions/keep_windows.R"))
-source(here("functions/CRW_PA.R"))
 source(here("functions/reroute_pathroutr.R"))
 set.seed(0902)
 
+# TO DO 
+#2) filter swordfish tracks outside of domain and refit SSMs and PAs
+
 # land file
-land <- ne_countries(scale = "large", returnclass = "sf") %>% st_make_valid() 
+land <- ne_countries(scale = "large", returnclass = "sf") %>% st_make_valid()
 land <- st_transform(land, crs = 4326)
 
 #load re-routed location data
@@ -21,7 +24,7 @@ alb <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
   mutate(lon = ifelse(lon > 180, lon - 360, lon))
 colnames(alb) <- c("id", "date", "sp", "lon", "lat")
 
-blu <- readRDS("data/loc_data/processed/ssm/blu_ssm_test.rds")
+blu <- readRDS("data/loc_data/processed/ssm/blu_ssm.rds")
 mako <- readRDS("data/loc_data/processed/ssm/mako_ssm.rds")
 swo <- readRDS("data/loc_data/processed/ssm/swo_ssm.rds")
 
@@ -51,36 +54,93 @@ min(swo_ssm$lon) - 2 #-168.4
 
 ### PA generation ####
 #### albacore #####
-  #have to use in house function bc tracks already regularized and light-level geolocations without error so cannot fit_ssm with animotum.
-alb_pa <- data.frame()
-alb <- alb %>% 
-        group_by(id) %>% 
-        arrange(date) %>% 
-        ungroup() %>%
-        mutate(time = paste('00', '00', sep = ":"),
-               date_time = paste(date, time, sep = " "),
-               dTime = as.POSIXct(strptime(as.character(date_time), "%Y-%m-%d %H:%M")),
-               tagid = as.character(id), 
-               long = as.numeric(lon), 
-               lat = as.numeric(lat)) %>%
-        select(c("tagid", "long", "lat", "dTime"))
+alb <- alb %>% group_by(id) %>% arrange(date) %>% ungroup() %>% mutate(date_posix = as.POSIXct(date, tz = "UTC"))
+alb_sf <- alb %>% st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
 
-#run PA generation in parallel
-#create the cluster
-n.cores <- parallel::detectCores() - 2
-my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
+bbox <- st_polygon(list(matrix(c(
+  -170, 0,
+  -100, 0,
+  -100, 55,
+  -170, 55,
+  -170, 0
+), ncol = 2, byrow = TRUE))) %>% 
+  st_sfc(crs = 4326) 
 
-#register it to be used by %dopar%
-doParallel::registerDoParallel(cl = my.cluster)
+alb_filt <- st_intersection(alb_sf, bbox)
 
-foreach(tagid = unique(alb$tagid)[unique(alb$tagid)>0], .packages = c("tidyverse", "adehabitatLT", "maps", "mapdata", "maptools", "sp", "raster")) %dopar% {
-  #simulate CRWs -- takes
-  alb_pa_r <- createCRW(alb, tagid, n.sim = 50)
-  #out.csv2 = sprintf('%s/crw_sim_all_%s.csv', out.dir, tagid) #keeps all iterations in a csv file -- EN ADDED
-  #write.csv(sim.alldata, file = out.csv2, row.names = F)
+#using adehabitatLT approach as described for ABFT PSAT locations -- McNicholas et al., 2024 diversity and distributions
+alb_proj <- alb_filt %>% st_transform(crs = 3395)
+coords_m <- st_coordinates(alb_proj) %>% as.data.frame()
+alb_proj$x_m <- coords_m[,"X"]
+alb_proj$y_m <- coords_m[,"Y"]
+
+#create ltraj object from tracks
+alb_ltraj <- as.ltraj(xy = coords_m[,c("X", "Y")], 
+                      date = alb_proj$date_posix,
+                      id = alb_proj$id,
+                      typeII = TRUE)
+
+#set spatial constraints for simulated tracks
+bbox_proj <- st_transform(bbox, crs = 3395)
+land_m <- st_transform(land, crs = 3395)
+
+land_dom_cons <- list(bbox = bbox_proj, land = land_m)
+
+land_dom_func <- function(x, par) {
+  
+  track_pts <- st_as_sf(x, coords = c("x", "y"), crs = 3395)
+  
+  inside_bbox <- all(st_within(track_pts, par$bbox, sparse = FALSE))
+  if (!inside_bbox) return(FALSE) 
+  
+  on_land <- any(st_intersects(track_pts, par$land, sparse = FALSE))
+  if (on_land) return(FALSE) 
+  
+  return(TRUE)
 }
 
-parallel::stopCluster(cl = my.cluster)
+# Define the Null Model with spatial constraints
+land_dom_crw <- NMs.randomCRW(
+  alb_ltraj, 
+  rangles = TRUE, 
+  rdist = TRUE,
+  constraint.func =  land_dom_func, 
+  constraint.par = land_dom_cons, 
+  nrep = 25
+)
+
+alb_pa <- testNM(land_dom_crw) #won't filter so only generating 25
+
+#convert back to df
+alb_pa_df <- map_dfr(alb_pa, function(sims_dat) {
+
+  map_dfr(seq_along(sims_dat), function(sim_num) {
+    sims_dat[[sim_num]] %>%
+      mutate(rep = sim_num) 
+  })
+
+}, .id = "id")
+
+head(alb_pa_df)
+rownames(alb_pa_df) <- NULL
+
+alb_pa_df <- alb_pa_df %>%
+  st_as_sf(coords = c("x", "y"), crs = 3395) %>%
+  st_transform(crs = 4326)
+
+# Extract coordinates into clean lon/lat columns
+alb_pa_coords <- st_coordinates(alb_pa_df)
+alb_pa_df <- alb_pa_df %>%
+  mutate(
+    lon = alb_pa_coords[, "X"],
+    lat = alb_pa_coords[, "Y"]
+  ) %>%
+  select(id, rep, date, lon, lat) %>%
+  st_drop_geometry()
+
+#reroute with pathroutr
+alb_pa_r <- run_reroute(alb_pa_df, sp = "albacore")
+plot(alb_pa_r)
 
 saveRDS(alb_pa_r, here("data/loc_data/processed/pa/alb_pa_routed.rds"))
 
@@ -167,12 +227,18 @@ saveRDS(swo_pa_r, here("data/loc_data/processed/pa/swo_pa_routed.rds"))
 alb_locs <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
   mutate(lon = ifelse(lon > 180, lon - 360, lon), 
          loc_type = "presence", 
-         rep = NA)
-colnames(alb_locs) <- c("id", "date", "sp", "lon", "lat", "loc_type", "rep")
-alb_pa <- readRDS(here("data/loc_data/processed/pa/alb_pa.rds")) %>%
-  mutate(sp = "Albacore tuna")
+         rep = NA) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+colnames(alb_locs) <- c("id", "date", "sp", "loc_type", "rep", "geometry")
+alb_locs <- st_intersection(alb_locs, bbox) #crop points outside of domain
 
-alb <- rbind(alb_locs, alb_pa) %>% st_as_sf(coords = c("lon", "lat"), crs = 4326)
+alb_pa <- readRDS(here("data/loc_data/processed/pa/alb_pa_routed.rds")) %>%
+  mutate(sp = "Albacore tuna", 
+         loc_type = "absence") %>%
+  st_transform(crs = 4326) %>%
+  select(-c(lon, lat, fid))
+
+alb <- rbind(alb_locs, alb_pa)
 
 #blue sharks
 blu_locs <- readRDS(here("data/loc_data/processed/ssm/blu_ssm.rds")) %>% 
@@ -221,7 +287,9 @@ swo <- rbind(swo_locs, swo_pa)
 
 #### Gap windows #####
 #albacore
-alb_windows <- keep_windows(alb_locs)
+alb_raw <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds")
+colnames(alb_raw) <- c("id", "date", "sp", "lon", "lat")
+alb_windows <- keep_windows(alb_raw)
 
 alb_no_gaps <- alb %>%
   inner_join(bind_rows(alb_windows), 
@@ -255,7 +323,7 @@ swo_no_gaps <- swo %>%
              by = join_by(id, between(date, start_time, end_time)))
 
 #### Land and domain filter #####
-land_dom_filt <- function(sp_dat){
+land_dom_filt <- function(sp_dat, sp){
   pa_dat <- sp_dat %>% filter(loc_type == "absence")
   loc_dat <- sp_dat %>% filter(loc_type == "presence")
 
@@ -269,42 +337,39 @@ land_dom_filt <- function(sp_dat){
     filter(!any(omit_keep == "omit")) %>%
     dplyr::select(-c("domain_intersect", "omit_keep"))
 
-  #filter tracks that overlap with land
-  land_union <- st_union(land) %>% #speeds up st_filter
-                st_transform(crs(sp_dat))
+  if(sp != "albacore"){ # do not need to run bc points pushed off land during track sim fitting
+    #filter tracks that overlap with land
+      land <- st_union(land) %>% st_transform(crs(sp_dat))
+      
+      pa_dat_land <- pa_dat_dom %>%
+        mutate(land_intersect = any(st_intersects(geometry, land, sparse = FALSE)), 
+              omit_keep = if_else(land_intersect, "omit", "keep")) %>% #keep the locations that do not intersect with land
+        filter(!any(omit_keep == "omit")) %>%
+        dplyr::select(-c("land_intersect", "omit_keep"))
+    
+      all_dat <- rbind(loc_dat, pa_dat_land)
+
+  } else if(sp == "albacore"){
+    all_dat <- rbind(loc_dat, pa_dat_dom)
+  }
   
-  pa_dat_land <- pa_dat_dom %>%
-    mutate(land_intersect = any(st_intersects(geometry, land_union, sparse = FALSE)), 
-           omit_keep = if_else(land_intersect, "omit", "keep")) %>% #keep the locations that do not intersect with land
-    filter(!any(omit_keep == "omit")) %>%
-    dplyr::select(-c("land_intersect", "omit_keep"))
-
-  all_dat <- rbind(loc_dat, pa_dat_land)
-
   return(all_dat)
 }
 
 #albacore 
-alb_filter <- land_dom_filt(alb_no_gaps)
-
-ggplot() + 
-    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
-    geom_sf(data = alb_filter, aes(color = loc_type)) + 
-    coord_sf(xlim = c(-170, -100),
-      ylim = c(0, 55),
-      expand = FALSE) +
-    theme_bw() 
+alb_filter <- land_dom_filt(alb_no_gaps, sp = "albacore")
+plot(alb_filter)
 
 #blue sharks
-blu_filter <- land_dom_filt(blu_no_gaps)
+blu_filter <- land_dom_filt(blu_no_gaps, sp = "blue")
 plot(blu_filter)
 
 #mako sharks
-mako_filter <- land_dom_filt(mako_no_gaps)
+mako_filter <- land_dom_filt(mako_no_gaps, sp = "mako")
 plot(mako_filter)
 
 #swordfish
-swo_filter <- land_dom_filt(swo_no_gaps)
+swo_filter <- land_dom_filt(swo_no_gaps, sp = "sword")
 plot(swo_filter)
 
 #### randomly sample PAs to get 1:1 with presences #####
@@ -339,11 +404,11 @@ for(i in 1:length(unique(sp_dat$id))){
 } #end function
 
 #albacore 
-alb_pres_abs <- pa_ratio(alb_filter)
+alb_pres_abs <- pa_ratio(alb_no_gaps)
 
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
-    geom_sf(data = test, aes(color = loc_type), size = 2, alpha = 0.8) + 
+    geom_sf(data = alb_pres_abs, aes(color = loc_type), size = 2, alpha = 0.8) + 
     coord_sf(xlim = c(-175, -98),
       ylim = c(-5, 60),
       expand = FALSE) +
