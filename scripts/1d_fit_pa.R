@@ -12,8 +12,6 @@ source(here("functions/keep_windows.R"))
 source(here("functions/reroute_pathroutr.R"))
 set.seed(0902)
 
-# TO DO 
-#2) filter swordfish tracks outside of domain and refit SSMs and PAs
 
 # land file
 land <- ne_countries(scale = "large", returnclass = "sf") %>% st_make_valid()
@@ -357,7 +355,7 @@ land_dom_filt <- function(sp_dat, sp){
 }
 
 #albacore 
-alb_filter <- land_dom_filt(alb_no_gaps, sp = "albacore")
+alb_filter <- land_dom_filt(alb_no_gaps, sp = "blue")
 plot(alb_filter)
 
 #blue sharks
@@ -419,7 +417,7 @@ saveRDS(alb_pres_abs, here("data/loc_data/processed/pres_abs/alb_pres_abs.rds"))
 
 #blue sharks
 land_union <- st_union(land) %>% #speeds up st_filter
-              st_transform(crs(blu_filter)) #should be the same for the other two species
+              st_transform(crs(swo_filter)) #should be the same for the other two species
 blu_pres_abs <- pa_ratio(blu_filter, ratio = 2)
 
 ggplot() + 

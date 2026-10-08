@@ -46,10 +46,23 @@ colnames(mako) <- c("id", "date", "lc", "sp", "lon", "lat")
 swo <- readRDS("data/loc_data/processed/pre_ssm/swo_dat.rds")
 colnames(swo) <- c("id", "date", "lc", "sp", "lon", "lat")
 
+swo_sf <- swo %>% st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+
+bbox <- st_polygon(list(matrix(c(
+  -170, 0,
+  -100, 0,
+  -100, 55,
+  -170, 55,
+  -170, 0
+), ncol = 2, byrow = TRUE))) %>% 
+  st_sfc(crs = 4326) 
+
+swo_filt <- st_intersection(swo_sf, bbox)
+
 #calculate keep windows
 blu_windows <- keep_windows(blu)
 mako_windows <- keep_windows(mako)
-swo_windows <- keep_windows(swo)
+swo_windows <- keep_windows(swo_filt)
 
 ### fit ssm ####
 #skip albacore bc cleaning already happened -- ssm not needed
@@ -157,16 +170,16 @@ plot(resid_mako, type = "acf", pages = 0)
 plot(resid_mako, type = "ts", pages = 0)
 
 #swordfish 
-swo %>%
+swo_filt %>%
   group_by(id) %>%
   arrange(id, date) %>%
   mutate(diff = date - lag(date), 
          diff_hours = as.numeric(diff, units = "hours")) %>%
   summarise(med_diff = median(diff_hours, na.rm = T)) %>%
   ungroup() %>%
-  summarise(all_mean = mean(med_diff)) #average time step btwn positions for all tracks is 26 hours
+  summarise(all_mean = mean(med_diff)) #average time step btwn positions for all tracks is 29 hours
 
-swo_ssm <- fit_ssm(swo, 
+swo_ssm <- fit_ssm(swo_filt, 
                    vmax = 3, #specifics not available, used guidelines set by O'Toole et al., 2021 Methods Ecol Evol
                    date = "date", 
                    coord = c("lon", "lat"), 
