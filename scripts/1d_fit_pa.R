@@ -335,7 +335,6 @@ land_dom_filt <- function(sp_dat, sp){
     filter(!any(omit_keep == "omit")) %>%
     dplyr::select(-c("domain_intersect", "omit_keep"))
 
-  if(sp != "albacore"){ # do not need to run bc points pushed off land during track sim fitting
     #filter tracks that overlap with land
       land <- st_union(land) %>% st_transform(crs(sp_dat))
       
@@ -346,10 +345,6 @@ land_dom_filt <- function(sp_dat, sp){
         dplyr::select(-c("land_intersect", "omit_keep"))
     
       all_dat <- rbind(loc_dat, pa_dat_land)
-
-  } else if(sp == "albacore"){
-    all_dat <- rbind(loc_dat, pa_dat_dom)
-  }
   
   return(all_dat)
 }
@@ -402,7 +397,7 @@ for(i in 1:length(unique(sp_dat$id))){
 } #end function
 
 #albacore 
-alb_pres_abs <- pa_ratio(alb_no_gaps)
+alb_pres_abs <- pa_ratio(alb_no_gaps, ratio = 2)
 
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -414,6 +409,14 @@ ggplot() +
   scale_color_manual(values = c("#77ABD9", "dodgerblue4"))
 
 saveRDS(alb_pres_abs, here("data/loc_data/processed/pres_abs/alb_pres_abs.rds"))
+
+#save csv for geolibre plotting
+alb <- readRDS(here("data/loc_data/processed/pres_abs/alb_pres_abs.rds"))
+coords_alb <- st_coordinates(alb) %>% as.data.frame()
+alb$longitude <- coords_alb[,"X"]
+alb$latitude <- coords_alb[,"Y"]
+alb <- alb %>% st_drop_geometry()
+write.csv(alb, here("data/loc_data/processed/pres_abs/csv/alb_pres_abs.csv"), row.names = FALSE)
 
 #blue sharks
 land_union <- st_union(land) %>% #speeds up st_filter
@@ -431,6 +434,14 @@ ggplot() +
 
 saveRDS(blu_pres_abs, here("data/loc_data/processed/pres_abs/blu_pres_abs.rds"))
 
+#save csv for geolibre plotting
+blu <- readRDS(here("data/loc_data/processed/pres_abs/blu_pres_abs.rds"))
+coords_blu <- st_coordinates(blu) %>% as.data.frame()
+blu$longitude <- coords_blu[,"X"]
+blu$latitude <- coords_blu[,"Y"]
+blu <- blu %>% st_drop_geometry()
+write.csv(blu, here("data/loc_data/processed/pres_abs/csv/blu_pres_abs.csv"), row.names = FALSE)
+
 #mako sharks
 mako_pres_abs <- pa_ratio(mako_filter, ratio = 2)
 
@@ -444,6 +455,14 @@ ggplot() +
   scale_color_manual(values = c("#77ABD9", "dodgerblue4"))
 
 saveRDS(mako_pres_abs, here("data/loc_data/processed/pres_abs/mako_pres_abs.rds"))
+
+#save csv for geolibre plotting
+mako <- readRDS(here("data/loc_data/processed/pres_abs/mako_pres_abs.rds"))
+coords_mako <- st_coordinates(mako) %>% as.data.frame()
+mako$longitude <- coords_mako[,"X"]
+mako$latitude <- coords_mako[,"Y"]
+mako <- mako %>% st_drop_geometry()
+write.csv(mako, here("data/loc_data/processed/pres_abs/csv/mako_pres_abs.csv"), row.names = FALSE)
 
 #swordfish
 swo_pres_abs <- pa_ratio(swo_filter, ratio = 2)
@@ -459,4 +478,11 @@ ggplot() +
 
 saveRDS(swo_pres_abs, here("data/loc_data/processed/pres_abs/swo_pres_abs.rds")) 
 
+#save csv for geolibre plotting
+swo <- readRDS(here("data/loc_data/processed/pres_abs/swo_pres_abs.rds"))
+coords_swo <- st_coordinates(swo) %>% as.data.frame()
+swo$longitude <- coords_swo[,"X"]
+swo$latitude <- coords_swo[,"Y"]
+swo <- swo %>% st_drop_geometry()
+write.csv(swo, here("data/loc_data/processed/pres_abs/csv/swo_pres_abs.csv"), row.names = FALSE)
 

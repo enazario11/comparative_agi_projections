@@ -7,7 +7,6 @@ library(tidyquant)
 
 #read in data
 land <- ne_countries(scale = "large", returnclass = "sf")
-land_pac <- st_transform(land, crs = 3832)
 
 #custom theme
 theme_custom <- function(){
@@ -21,7 +20,7 @@ theme_custom <- function(){
        legend.position = "right")
 }
 
-alb <- readRDS(here("data/loc_data/alb_tag/validTagsLocns_NOAAonly_bathym_corrected.rds")) %>% mutate(tag = as.character(tag), sp = "Albacore tuna")
+alb <- readRDS(here("data/loc_data/alb_tag/validTagsLocns_NOAAonly_bathym_corrected.rds"))
 blu <- read.csv(here("data/loc_data/blu_tag/blue shark 1 per day.csv"))
 mako <- read.csv(here("data/loc_data/mako_tag/mako_spot_filtered_1_step_per_day.csv")) 
 swo <- read.csv(here("data/loc_data/swo_tag/PIER_swordfish_tag_data_exp_EM.csv"))
@@ -29,39 +28,26 @@ swo <- read.csv(here("data/loc_data/swo_tag/PIER_swordfish_tag_data_exp_EM.csv")
 #clean dfs
 #albacore
 alb <- alb %>% 
-  mutate(lon = ifelse(lon360 > 180, lon360 - 360, lon360))
+  mutate(lon = ifelse(lon360 > 180, lon360 - 360, lon360), 
+         date = as.Date(dateRd, format = "%Y-%m-%d")) 
 
 locs_alb <- alb %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326) |> 
-  st_transform(crs = 3832)
-
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
 #blue sharks
 blu <- blu %>% 
-  filter(PresAbs == 1) %>% 
-  select(-c(X, iter, PresAbs, flag, id)) %>%
-  mutate(sp = "Blue sharks")
-
-colnames(blu) <- c("lon", "lat", "date", "tag", "sp")
-
-blu <- blu %>% 
-  mutate(date = as.Date(date, format = "%m/%d/%Y"), 
-         tag = as.character(tag))
+  mutate(date = as.Date(Date, format = "%m/%d/%y"), 
+         id = paste0(ptt, "_", FL))
 
 #mako 
 mako <- mako %>% 
-  mutate(sp = "Mako sharks", 
-         date = as.Date(date, format = "%Y-%m-%d")) %>%
-  select(-c(lc))
-colnames(mako) <- c("tag", "date", "lon", "lat", "sp")
+  mutate(date = as.Date(PDT.date, format = "%m/%d/%Y"), 
+         id = paste0(PTT, "_", size))
 
 #swordfish 
 swo <- swo %>%
-  mutate(sp = "Swordfish", 
-         date = as.Date(Date..dd.mm.yyyy., format = "%d/%m/%Y"), 
-         Ptt = as.character(Ptt))  %>%
-         select(c(Ptt, date, Loc.Class, Longitude, Latitude, sp))
-colnames(swo) <- c("tag", "date", "lc", "lon", "lat", "sp")
+  mutate(date = as.Date(Date..dd.mm.yyyy., format = "%d/%m/%Y"), 
+         Ptt = as.character(Ptt)) 
 
 #summary stats of sp tag data
 #albacore
@@ -69,6 +55,8 @@ table(alb$tag)
 length(unique(alb$tag)) #21
 min(alb$date) # 2003-08-24
 max(alb$date) # 2013-08-23
+
+alb %>% group_by(tag) %>% mutate(deploy_dur = max(date, na.rm = TRUE) - min(date, na.rm = TRUE)) %>% ungroup() %>% summarise(mean_deploy = mean(deploy_dur), sd_deploy = sd(deploy_dur))
 
 ggplot() + 
   geom_sf(data = land_pac, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -83,6 +71,8 @@ length(unique(blu$tag)) #60
 min(blu$date) # 2004-11-07
 max(blu$date) # 2012-11-21
 
+blu %>% group_by(ptt) %>% mutate(deploy_dur = max(date, na.rm = TRUE) - min(date, na.rm = TRUE)) %>% filter(!is.infinite(deploy_dur)) %>% ungroup() %>% summarise(mean_deploy = mean(deploy_dur, na.rm = TRUE), sd_deploy = sd(deploy_dur, na.rm = TRUE))
+
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
     coord_sf(xlim = c(min(blu$lon) - 2, max(blu$lon) + 2),
@@ -96,6 +86,8 @@ table(mako$tag)
 length(unique(mako$tag)) # 121
 min(mako$date) # 2003-06-25
 max(mako$date) # 2016-02-03
+
+mako %>% group_by(PTT, size) %>% mutate(deploy_dur = max(date, na.rm = TRUE) - min(date, na.rm = TRUE)) %>% filter(!is.infinite(deploy_dur)) %>% ungroup() %>% summarise(mean_deploy = mean(deploy_dur, na.rm = TRUE), sd_deploy = sd(deploy_dur, na.rm = TRUE))
 
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
