@@ -12,16 +12,12 @@ source(here("functions/keep_windows.R"))
 source(here("functions/reroute_pathroutr.R"))
 set.seed(0902)
 
-
 # land file
-land <- ne_countries(scale = "large", returnclass = "sf") %>% st_make_valid()
-land <- st_transform(land, crs = 4326)
+land <- ne_countries(scale = "large", returnclass = "sf") %>%  st_transform(land, crs = 4326)
+land_valid <- land %>% st_make_valid() 
 
 #load re-routed location data
-alb <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
-  mutate(lon = ifelse(lon > 180, lon - 360, lon))
-colnames(alb) <- c("id", "date", "sp", "lon", "lat")
-
+alb <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") #pre-ssm here because alb data came fitted with UKFSST, I did not fit an animotum ssm
 blu <- readRDS("data/loc_data/processed/ssm/blu_ssm.rds")
 mako <- readRDS("data/loc_data/processed/ssm/mako_ssm.rds")
 swo <- readRDS("data/loc_data/processed/ssm/swo_ssm.rds")
@@ -52,7 +48,7 @@ min(swo_ssm$lon) - 2 #-168.4
 
 ### PA generation ####
 #### albacore #####
-alb <- alb %>% group_by(id) %>% arrange(date) %>% ungroup() %>% mutate(date_posix = as.POSIXct(date, tz = "UTC"))
+alb <- alb %>% group_by(id) %>% arrange(date) %>% ungroup() %>% mutate(date = as.POSIXct(date, tz = "UTC"))
 alb_sf <- alb %>% st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
 
 bbox <- st_polygon(list(matrix(c(
@@ -74,7 +70,7 @@ alb_proj$y_m <- coords_m[,"Y"]
 
 #create ltraj object from tracks
 alb_ltraj <- as.ltraj(xy = coords_m[,c("X", "Y")], 
-                      date = alb_proj$date_posix,
+                      date = alb_proj$date,
                       id = alb_proj$id,
                       typeII = TRUE)
 
@@ -140,7 +136,7 @@ alb_pa_df <- alb_pa_df %>%
 alb_pa_r <- run_reroute(alb_pa_df, sp = "albacore")
 plot(alb_pa_r)
 
-saveRDS(alb_pa_r, here("data/loc_data/processed/pa/alb_pa_routed.rds"))
+saveRDS(alb_pa_r, here("data/loc_data/processed/ssm_pa/alb_pa_routed.rds"))
 
 #### SSM Species #####
 #get bounding polygon for MOM6 domain 
@@ -201,7 +197,7 @@ blu_pa_r <- run_reroute(blu_pa_filt)
 
 plot(blu_pa_r)
 
-saveRDS(blu_pa_r, here("data/loc_data/processed/pa/blu_pa_routed.rds"))
+saveRDS(blu_pa_r, here("data/loc_data/processed/ssm_pa/blu_pa_routed.rds"))
 
 #### mako sharks #####
 mako_pa <- sim_fit(mako, what = "predicted", reps = 100, grad = grad)
@@ -291,7 +287,8 @@ alb_windows <- keep_windows(alb_raw)
 
 alb_no_gaps <- alb %>%
   inner_join(bind_rows(alb_windows), 
-             by = join_by(id, between(date, start_time, end_time)))
+             by = join_by(id, between(date, start_time, end_time))) %>%
+  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
 
 #blue sharks
 blu_raw <- readRDS("data/loc_data/processed/pre_ssm/blu_dat.rds") %>% filter(lc != "P" & lc != "D")
@@ -300,7 +297,8 @@ blu_windows <- keep_windows(blu_raw)
 
 blu_no_gaps <- blu %>%
   inner_join(bind_rows(blu_windows), 
-             by = join_by(id, between(date, start_time, end_time)))
+             by = join_by(id, between(date, start_time, end_time))) %>%
+  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
 
 #mako sharks
 mako_raw <- readRDS("data/loc_data/processed/pre_ssm/mako_dat.rds") %>% filter(lc != "P" & lc != "D")
@@ -309,7 +307,8 @@ mako_windows <- keep_windows(mako_raw)
 
 mako_no_gaps <- mako %>%
   inner_join(bind_rows(mako_windows), 
-             by = join_by(id, between(date, start_time, end_time)))
+             by = join_by(id, between(date, start_time, end_time))) %>%
+  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
 
 #swordfish
 swo_raw <- readRDS("data/loc_data/processed/pre_ssm/swo_dat.rds") %>% filter(lc != "P" & lc != "D")
@@ -318,7 +317,8 @@ swo_windows <- keep_windows(swo_raw)
 
 swo_no_gaps <- swo %>%
   inner_join(bind_rows(swo_windows), 
-             by = join_by(id, between(date, start_time, end_time)))
+             by = join_by(id, between(date, start_time, end_time))) %>%
+  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
 
 #### Land and domain filter #####
 land_dom_filt <- function(sp_dat, sp){
