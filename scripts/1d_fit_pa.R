@@ -205,7 +205,7 @@ mako_pa_filt <- sim_filter(mako_pa, keep = 0.25, flag = 1) #flag based on hazen 
 mako_pa_r <- run_reroute(mako_pa_filt)
 
 plot(mako_pa_r)
-saveRDS(mako_pa_r, here("data/loc_data/processed/pa/mako_pa_routed.rds"))
+saveRDS(mako_pa_r, here("data/loc_data/processed/ssm_pa/mako_pa_routed.rds"))
 
 #### swordfish#####
 swo_pa <- sim_fit(swo, what = "predicted", reps = 100, grad = grad)
@@ -213,26 +213,49 @@ swo_pa_filt <- sim_filter(swo_pa, keep = 0.25, flag = 1) #flag based on hazen et
 swo_pa_r <- run_reroute(swo_pa_filt)
 
 plot(swo_pa_r)
-saveRDS(swo_pa_r, here("data/loc_data/processed/pa/swo_pa_routed.rds"))
+saveRDS(swo_pa_r, here("data/loc_data/processed/ssm_pa/swo_pa_routed.rds"))
 
 #### remove locations in gap windows, and tracks that have locations on land and outside of study domain ####
+#remove locations from presence DFs outside of domain and correspondings PA locations
+remove_pres_dom <- function(sp_dat){
+  pres_loc <- sp_dat %>% filter(loc_type == "presence") %>% mutate(filt_id = paste(id, date))
+  abs_loc <- sp_dat %>% filter(loc_type == "absence") %>% mutate(filt_id = paste(id, date))
+
+  bbox <- st_polygon(list(matrix(c(
+  -170, 0,
+  -100, 0,
+  -100, 55,
+  -170, 55,
+  -170, 0
+), ncol = 2, byrow = TRUE))) %>% 
+  st_sfc(crs = 4326) 
+
+  pres_loc_filt <- pres_loc[st_intersects(pres_loc, bbox, sparse = FALSE), ]
+
+  abs_loc_filt <- abs_loc[abs_loc$filt_id %in% pres_loc_filt$filt_id, ]
+  
+  pres_loc_filt <- pres_loc_filt %>% select(-c(filt_id))
+  abs_loc_filt <- abs_loc_filt %>% select(-c(filt_id))
+  filt_dat <- rbind(pres_loc_filt, abs_loc_filt)
+
+}
+
 #combine rerouted presences and PAs into one df, then make locs a spatial feature
 #albacore 
 alb_locs <- readRDS("data/loc_data/processed/pre_ssm/alb_dat.rds") %>%
-  mutate(lon = ifelse(lon > 180, lon - 360, lon), 
-         loc_type = "presence", 
+  mutate(loc_type = "presence", 
          rep = NA) %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
-colnames(alb_locs) <- c("id", "date", "sp", "loc_type", "rep", "geometry")
-alb_locs <- st_intersection(alb_locs, bbox) #crop points outside of domain
+colnames(alb_locs) <- c("id", "date", "loc_type", "rep", "geometry")
+#alb_locs <- st_intersection(alb_locs, bbox) #crop points outside of domain
 
-alb_pa <- readRDS(here("data/loc_data/processed/pa/alb_pa_routed.rds")) %>%
-  mutate(sp = "Albacore tuna", 
-         loc_type = "absence") %>%
+alb_pa <- readRDS(here("data/loc_data/processed/ssm_pa/alb_pa_routed.rds")) %>%
+  mutate(loc_type = "absence") %>%
   st_transform(crs = 4326) %>%
   select(-c(lon, lat, fid))
 
 alb <- rbind(alb_locs, alb_pa)
+alb <- remove_pres_dom(alb)
 
 #blue sharks
 blu_locs <- readRDS(here("data/loc_data/processed/ssm/blu_ssm.rds")) %>% 
@@ -241,13 +264,14 @@ blu_locs <- readRDS(here("data/loc_data/processed/ssm/blu_ssm.rds")) %>%
          rep = NA) %>%
   dplyr::select(-c("x", "y", "x.se", "y.se")) %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
-blu_pa <- readRDS(here("data/loc_data/processed/pa/blu_pa_routed.rds")) %>% 
+blu_pa <- readRDS(here("data/loc_data/processed/ssm_pa/blu_pa_routed.rds")) %>% 
   mutate(loc_type = "absence") %>%
   filter(rep != 0) %>%
   dplyr::select(-c("fid", "lon", "lat")) %>%
   st_transform(crs = 4326)
 
 blu <- rbind(blu_locs, blu_pa) 
+blu <- remove_pres_dom(blu)
 
 #mako sharks
 mako_locs <- readRDS(here("data/loc_data/processed/ssm/mako_ssm.rds")) %>% 
@@ -256,13 +280,14 @@ mako_locs <- readRDS(here("data/loc_data/processed/ssm/mako_ssm.rds")) %>%
          rep = NA) %>%
   dplyr::select(-c("x", "y", "x.se", "y.se")) %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
-mako_pa <- readRDS(here("data/loc_data/processed/pa/mako_pa_routed.rds")) %>% 
+mako_pa <- readRDS(here("data/loc_data/processed/ssm_pa/mako_pa_routed.rds")) %>% 
   mutate(loc_type = "absence") %>%
   filter(rep != 0) %>%
   dplyr::select(-c("fid", "lon", "lat")) %>%
   st_transform(crs = 4326)
 
 mako <- rbind(mako_locs, mako_pa) 
+mako <- remove_pres_dom(mako)
 
 #swordfish
 swo_locs <- readRDS(here("data/loc_data/processed/ssm/swo_ssm.rds")) %>% 
@@ -271,13 +296,14 @@ swo_locs <- readRDS(here("data/loc_data/processed/ssm/swo_ssm.rds")) %>%
          rep = NA) %>%
   dplyr::select(-c("x", "y", "x.se", "y.se")) %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
-swo_pa <- readRDS(here("data/loc_data/processed/pa/swo_pa_routed.rds")) %>% 
+swo_pa <- readRDS(here("data/loc_data/processed/ssm_pa/swo_pa_routed.rds")) %>% 
   mutate(loc_type = "absence") %>%
   filter(rep != 0) %>%
   dplyr::select(-c("fid", "lon", "lat")) %>%
   st_transform(crs = 4326)
 
 swo <- rbind(swo_locs, swo_pa) 
+swo <- remove_pres_dom(swo)
 
 #### Gap windows #####
 #albacore
@@ -288,7 +314,9 @@ alb_windows <- keep_windows(alb_raw)
 alb_no_gaps <- alb %>%
   inner_join(bind_rows(alb_windows), 
              by = join_by(id, between(date, start_time, end_time))) %>%
-  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
+  group_by(id, burst_id) %>% 
+  filter(n() >= 3) %>% 
+  ungroup()
 
 #blue sharks
 blu_raw <- readRDS("data/loc_data/processed/pre_ssm/blu_dat.rds") %>% filter(lc != "P" & lc != "D")
@@ -298,7 +326,9 @@ blu_windows <- keep_windows(blu_raw)
 blu_no_gaps <- blu %>%
   inner_join(bind_rows(blu_windows), 
              by = join_by(id, between(date, start_time, end_time))) %>%
-  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
+  group_by(id, burst_id) %>% 
+  filter(n() >= 3) %>% 
+  ungroup()
 
 #mako sharks
 mako_raw <- readRDS("data/loc_data/processed/pre_ssm/mako_dat.rds") %>% filter(lc != "P" & lc != "D")
@@ -308,7 +338,9 @@ mako_windows <- keep_windows(mako_raw)
 mako_no_gaps <- mako %>%
   inner_join(bind_rows(mako_windows), 
              by = join_by(id, between(date, start_time, end_time))) %>%
-  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
+  group_by(id, burst_id) %>% 
+  filter(n() >= 3) %>% 
+  ungroup()
 
 #swordfish
 swo_raw <- readRDS("data/loc_data/processed/pre_ssm/swo_dat.rds") %>% filter(lc != "P" & lc != "D")
@@ -318,10 +350,12 @@ swo_windows <- keep_windows(swo_raw)
 swo_no_gaps <- swo %>%
   inner_join(bind_rows(swo_windows), 
              by = join_by(id, between(date, start_time, end_time))) %>%
-  group_by(burst_id) %>% discard(n() >= 3) %>% ungroup()
+  group_by(id, burst_id) %>% 
+  filter(n() >= 3) %>% 
+  ungroup()
 
 #### Land and domain filter #####
-land_dom_filt <- function(sp_dat, sp){
+land_dom_filt <- function(sp_dat){
   pa_dat <- sp_dat %>% filter(loc_type == "absence")
   loc_dat <- sp_dat %>% filter(loc_type == "presence")
 
@@ -335,34 +369,35 @@ land_dom_filt <- function(sp_dat, sp){
     filter(!any(omit_keep == "omit")) %>%
     dplyr::select(-c("domain_intersect", "omit_keep"))
 
-    #filter tracks that overlap with land
-      land <- st_union(land) %>% st_transform(crs(sp_dat))
-      
-      pa_dat_land <- pa_dat_dom %>%
-        mutate(land_intersect = any(st_intersects(geometry, land, sparse = FALSE)), 
-              omit_keep = if_else(land_intersect, "omit", "keep")) %>% #keep the locations that do not intersect with land
-        filter(!any(omit_keep == "omit")) %>%
-        dplyr::select(-c("land_intersect", "omit_keep"))
-    
-      all_dat <- rbind(loc_dat, pa_dat_land)
+  #filter tracks that overlap with land
+  #land <- st_union(land) %>% st_transform(crs(sp_dat))
+  land <- ne_countries(scale = "large", returnclass = "sf") %>% st_make_valid()
+     
+  pa_dat_land <- pa_dat_dom %>%
+    mutate(land_intersect = any(st_intersects(geometry, land, sparse = FALSE)), 
+           omit_keep = if_else(land_intersect, "omit", "keep")) %>% #keep the locations that do not intersect with land
+    filter(!any(omit_keep == "omit")) %>%
+    dplyr::select(-c("land_intersect", "omit_keep"))
+  
+  all_dat <- rbind(loc_dat, pa_dat_land)
   
   return(all_dat)
 }
 
 #albacore 
-alb_filter <- land_dom_filt(alb_no_gaps, sp = "blue")
+alb_filter <- land_dom_filt(alb_no_gaps)
 plot(alb_filter)
 
 #blue sharks
-blu_filter <- land_dom_filt(blu_no_gaps, sp = "blue")
+blu_filter <- land_dom_filt(blu_no_gaps)
 plot(blu_filter)
 
 #mako sharks
-mako_filter <- land_dom_filt(mako_no_gaps, sp = "mako")
+mako_filter <- land_dom_filt(mako_no_gaps)
 plot(mako_filter)
 
 #swordfish
-swo_filter <- land_dom_filt(swo_no_gaps, sp = "sword")
+swo_filter <- land_dom_filt(swo_no_gaps)
 plot(swo_filter)
 
 #### randomly sample PAs to get 1:1 with presences #####
@@ -419,12 +454,10 @@ alb <- alb %>% st_drop_geometry()
 write.csv(alb, here("data/loc_data/processed/pres_abs/csv/alb_pres_abs.csv"), row.names = FALSE)
 
 #blue sharks
-land_union <- st_union(land) %>% #speeds up st_filter
-              st_transform(crs(swo_filter)) #should be the same for the other two species
 blu_pres_abs <- pa_ratio(blu_filter, ratio = 2)
 
 ggplot() + 
-    geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
     geom_sf(data = blu_pres_abs, aes(color = loc_type), size = 2, alpha = 0.8) + 
     coord_sf(xlim = c(-175, -98),
       ylim = c(-5, 60),
@@ -446,7 +479,7 @@ write.csv(blu, here("data/loc_data/processed/pres_abs/csv/blu_pres_abs.csv"), ro
 mako_pres_abs <- pa_ratio(mako_filter, ratio = 2)
 
 ggplot() + 
-    geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
     geom_sf(data = mako_pres_abs, aes(color = loc_type), size = 2, alpha = 0.8) + 
     coord_sf(xlim = c(-175, -98),
       ylim = c(-5, 60),
@@ -468,7 +501,7 @@ write.csv(mako, here("data/loc_data/processed/pres_abs/csv/mako_pres_abs.csv"), 
 swo_pres_abs <- pa_ratio(swo_filter, ratio = 2)
 
 ggplot() + 
-    geom_sf(data = land_union, fill = "grey85", color = "grey30", linewidth = 0.2) +
+    geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
     geom_sf(data = swo_pres_abs, aes(color = loc_type), size = 2, alpha = 0.8) + 
     coord_sf(xlim = c(-175, -98),
       ylim = c(-5, 60),
