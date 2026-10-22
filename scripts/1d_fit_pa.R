@@ -100,7 +100,7 @@ land_dom_crw <- NMs.randomCRW(
   rdist = TRUE,
   constraint.func =  land_dom_func, 
   constraint.par = land_dom_cons, 
-  nrep = 25
+  nrep = 30
 )
 
 alb_pa <- testNM(land_dom_crw) #won't filter so only generating 25
@@ -191,8 +191,8 @@ grad <- c(grad.x, grad.y)
 plot(grad)
 
 #### blue sharks ######
-blu_pa <- sim_fit(blu, what = "predicted", reps = 100, grad = grad)
-blu_pa_filt <- sim_filter(blu_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
+blu_pa <- sim_fit(blu, what = "predicted", reps = 150, grad = grad)
+blu_pa_filt <- sim_filter(blu_pa, keep = 0.30, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
 blu_pa_r <- run_reroute(blu_pa_filt)
 
 plot(blu_pa_r)
@@ -200,16 +200,16 @@ plot(blu_pa_r)
 saveRDS(blu_pa_r, here("data/loc_data/processed/ssm_pa/blu_pa_routed.rds"))
 
 #### mako sharks #####
-mako_pa <- sim_fit(mako, what = "predicted", reps = 100, grad = grad)
-mako_pa_filt <- sim_filter(mako_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
+mako_pa <- sim_fit(mako, what = "predicted", reps = 150, grad = grad)
+mako_pa_filt <- sim_filter(mako_pa, keep = 0.30, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
 mako_pa_r <- run_reroute(mako_pa_filt)
 
 plot(mako_pa_r)
 saveRDS(mako_pa_r, here("data/loc_data/processed/ssm_pa/mako_pa_routed.rds"))
 
 #### swordfish#####
-swo_pa <- sim_fit(swo, what = "predicted", reps = 100, grad = grad)
-swo_pa_filt <- sim_filter(swo_pa, keep = 0.25, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
+swo_pa <- sim_fit(swo, what = "predicted", reps = 150, grad = grad)
+swo_pa_filt <- sim_filter(swo_pa, keep = 0.30, flag = 1) #flag based on hazen et al., 2017 journal of applied ecology
 swo_pa_r <- run_reroute(swo_pa_filt)
 
 plot(swo_pa_r)
@@ -400,39 +400,39 @@ plot(mako_filter)
 swo_filter <- land_dom_filt(swo_no_gaps)
 plot(swo_filter)
 
-#### randomly sample PAs to get 1:1 with presences #####
+#### randomly sample PAs to get given ratio with presences #####
 pa_ratio <- function(sp_dat, ratio = 1){
 
   pres_abs_df <- data.frame()
 
-for(i in 1:length(unique(sp_dat$id))){
+    for(i in 1:length(unique(sp_dat$id))){
 
-  curr_id = unique(sp_dat$id)[i]
+      curr_id = unique(sp_dat$id)[i]
 
-  print(curr_id)
-  temp_dat = sp_dat %>% filter(id == curr_id)
-  num_presence = temp_dat %>% filter(loc_type == "presence") %>% summarise(n = n())
-  num_presence = num_presence$n
+      print(curr_id)
+      temp_dat = sp_dat %>% filter(id == curr_id)
+      num_presence = temp_dat %>% filter(loc_type == "presence") %>% summarise(n = n())
+      num_presence = num_presence$n
 
-  pres_df = temp_dat %>% filter(loc_type == "presence")
-  abs_df = temp_dat %>% filter(loc_type == "absence")
-  abs_df_sub = abs_df %>% count(rep) %>% mutate(diff = abs(n - nrow(pres_df))) %>% slice_min(order_by = diff, n = 10) %>% pull(rep)    # get reps with top 10 closest number rows to observed locations
-  abs_df = abs_df %>% filter(rep %in% abs_df_sub)
+      pres_df = temp_dat %>% filter(loc_type == "presence")
+      abs_df = temp_dat %>% filter(loc_type == "absence")
+      abs_df_sub = abs_df %>% count(rep) %>% mutate(diff = abs(n - nrow(pres_df))) %>% slice_min(order_by = diff, n = 20) %>% pull(rep)  # get reps with top 10 closest number rows to observed locations
+      abs_df = abs_df %>% filter(rep %in% abs_df_sub)
 
-  abs_id = sample(unique(abs_df$rep), ratio, replace = FALSE)
-  abs_df_sub <- abs_df[abs_df$rep %in% abs_id, ]
+      abs_id = sample(unique(abs_df$rep), ratio, replace = FALSE)
+      abs_df_sub <- abs_df[abs_df$rep %in% abs_id, ]
 
 
-  pres_abs_temp <- rbind(pres_df, abs_df_sub)
+      pres_abs_temp <- rbind(pres_df, abs_df_sub)
 
-  pres_abs_df <- rbind(pres_abs_df, pres_abs_temp)
+      pres_abs_df <- rbind(pres_abs_df, pres_abs_temp)
 
-} #end for loop
+    } #end for loop
   return(pres_abs_df)
 } #end function
 
 #albacore 
-alb_pres_abs <- pa_ratio(alb_no_gaps, ratio = 2)
+alb_pres_abs <- pa_ratio(alb_no_gaps, ratio = 10)
 
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -454,7 +454,7 @@ alb <- alb %>% st_drop_geometry()
 write.csv(alb, here("data/loc_data/processed/pres_abs/csv/alb_pres_abs.csv"), row.names = FALSE)
 
 #blue sharks
-blu_pres_abs <- pa_ratio(blu_filter, ratio = 2)
+blu_pres_abs <- pa_ratio(blu_filter, ratio = 10)
 
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -476,7 +476,7 @@ blu <- blu %>% st_drop_geometry()
 write.csv(blu, here("data/loc_data/processed/pres_abs/csv/blu_pres_abs.csv"), row.names = FALSE)
 
 #mako sharks
-mako_pres_abs <- pa_ratio(mako_filter, ratio = 2)
+mako_pres_abs <- pa_ratio(mako_filter, ratio = 10)
 
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
@@ -498,7 +498,7 @@ mako <- mako %>% st_drop_geometry()
 write.csv(mako, here("data/loc_data/processed/pres_abs/csv/mako_pres_abs.csv"), row.names = FALSE)
 
 #swordfish
-swo_pres_abs <- pa_ratio(swo_filter, ratio = 2)
+swo_pres_abs <- pa_ratio(swo_filter, ratio = 10)
 
 ggplot() + 
     geom_sf(data = land, fill = "grey85", color = "grey30", linewidth = 0.2) +
