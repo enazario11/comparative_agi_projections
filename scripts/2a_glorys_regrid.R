@@ -8,7 +8,7 @@ source(here("functions/stars_to_terra.R"))
 
 #regrid and save
 #set up parallel computing
-cl <- makeCluster(10)
+cl <- makeCluster(8)
 
 clusterEvalQ(cl, {
   library(tidyverse)
@@ -23,5 +23,15 @@ clusterExport(cl, varlist = c("stars_to_terra"))
 
   #temperature
 temp_files <- list.files(here("data/enviro/merc/raw/T"), full.names = TRUE)
-parLapply(cl, temp_files, stars_to_terra, nc_var_name = "thetao")
+parLapply(cl, temp_files, stars_to_terra, nc_var_name = "thetao", var_abbrv = "T")
+stopCluster(cl)
+
+  #salinity
+temp_files <- list.files(here("data/enviro/merc/raw/S"), full.names = TRUE)
+parLapply(cl, temp_files, stars_to_terra, nc_var_name = "vosaline", var_abbrv = "S")
+stopCluster(cl)
+
+  #2D
+temp_files <- list.files(here("data/enviro/merc/raw/2D"), full.names = TRUE)
+parLapply(cl, temp_files, stars_to_terra, nc_var_name = "somxlavt", var_abbrv = "MLD", file_2D = TRUE)
 stopCluster(cl)
