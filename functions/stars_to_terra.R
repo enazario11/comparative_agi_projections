@@ -24,7 +24,7 @@ stars_to_terra <- function(nc_files, nc_var_name, var_abbrv, file_2D = FALSE){
       st_set_dimensions("time_counter", as.POSIXct(st_get_dimension_values(., "time_counter"))) %>% 
       setNames(nc_var_name)
     } else if (file_2D == TRUE){
-      merc_stars <- read_ncdf(nc_files[i], curvilinear = c("nav_lon", "nav_lat"), var = "somxlavt") %>% 
+      merc_stars <- read_ncdf(nc_files[i], curvilinear = c("nav_lon", "nav_lat"), var = nc_var_name) %>% 
       st_set_dimensions("time_counter", as.POSIXct(st_get_dimension_values(., "time_counter")))
     }
     
@@ -34,7 +34,7 @@ stars_to_terra <- function(nc_files, nc_var_name, var_abbrv, file_2D = FALSE){
     
     #seq along each time step and warp each curv time layer to reg (aka template aka dest)
     #stupid st_warp doesn't work with time...maybe later check github comment
-    if(file_2D == FALSE){
+    if(file_2D == FALSE | var_abbrv == "su" | var_abbrv == "sv" | var_abbrv == "chl" | var_abbrv == "o2"){
       merc_list <- lapply(seq_along(st_get_dimension_values(merc_stars, "time_counter")),
                         \(i) st_warp(merc_stars[1, , , 1, i], dest)) %>% suppressMessages()
     } else if(file_2D == TRUE){
@@ -48,7 +48,7 @@ stars_to_terra <- function(nc_files, nc_var_name, var_abbrv, file_2D = FALSE){
     dat_year <- substr(as.character(st_get_dimension_values(merc_stars, which = "time_counter")[1]), 1, 4)
     dat_mo <- substr(as.character(st_get_dimension_values(merc_stars, which = "time_counter")[1]), 6, 7)
 
-    out_name <- paste0("regrid_", strsplit(nc_files[i], split = "/")[[1]][12])
+    out_name <- paste0("regrid_", var_abbrv, "_", strsplit(nc_files[i], split = "/")[[1]][12])
     write_mdim(merc_reg, here(paste0("data/enviro/merc/temporary/", var_abbrv,"/", out_name)))
     
     #read with terra 
