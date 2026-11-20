@@ -18,10 +18,10 @@ depth_tbl <- data.frame(
   nominal = depth_vect_name
 )
 depth_vect_2d = 1
-date_vect = seq(as.Date("2016-01-01"), as.Date("2018-12-31"), by = "6 months")
+date_vect = seq(as.Date("2023-01-01"), as.Date("2025-12-31"), by = "6 months")
 
 depth_date_vect = merge(depth_tbl, data.frame(date = date_vect), by = NULL)
-#depth_date_vect_2d = expand.grid(depth = depth_vect_2d, date = date_vect)
+depth_date_vect_2d = expand.grid(depth = depth_vect_2d, date = date_vect)
 
 cmem_nc <- function(cmem_id, out_directory, out_file, cmem_var, start_date, end_date, lon_min = xmin, lat_min = ymin, lon_max = xmax, lat_max = ymax, min_depth, max_depth){
 
@@ -80,7 +80,7 @@ for(i in 1:length(chl_files)){
   time(rast_clean) <- time(curr_rast)
   varnames(rast_clean) <- varnames(curr_rast)
 
-  writeCDF(rast_clean, here(paste0("data/enviro/merc/regrid/chl/regrid_",curr_filename)))
+  writeCDF(rast_clean, here(paste0("data/enviro/merc/regrid/chl/regrid_",curr_filename)), overwrite = TRUE)
 }
 
 
@@ -119,5 +119,5 @@ for(i in 1:length(o2_files)){
   time(rast_clean) <- time(curr_rast)
   varnames(rast_clean) <- varnames(curr_rast)
 
-  writeCDF(rast_clean, here(paste0("data/enviro/merc/regrid/o2/regrid_",curr_filename)))
+  writeCDF(rast_clean, here(paste0("data/enviro/merc/regrid/o2/regrid_",curr_filename)), overwrite = TRUE)
 }

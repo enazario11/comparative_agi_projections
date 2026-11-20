@@ -50,15 +50,16 @@ parLapply(cl, temp_files, stars_to_terra, nc_var_name = "vomecrty", var_abbrv = 
 parLapply(cl, temp_files, stars_to_terra, nc_var_name = "sometauy", var_abbrv = "svstr", file_2D = TRUE)
 stopCluster(cl)
 
-  #oxygen
-temp_files <- list.files(here("data/enviro/merc/raw/o2"), full.names = TRUE)
-parLapply(cl, temp_files, stars_to_terra, nc_var_name = "o2", var_abbrv = "o2", file_2D = TRUE)
-stopCluster(cl)
 
-  #chlorophyll
-temp_files <- list.files(here("data/enviro/merc/raw/chl"), full.names = TRUE)
-parLapply(cl, temp_files, stars_to_terra, nc_var_name = "chl", var_abbrv = "chl", file_2D = TRUE)
-stopCluster(cl)
+#rename files in a regrid folder to get rid of duplicate var name
+curr_var <- "2D"
+folder_path <- paste0("data/enviro/merc/regrid/", curr_var)
 
+old_files <- list.files(path = folder_path, pattern = paste0(curr_var, "_", curr_var, "_"), full.names = TRUE)
+new_files <- file.path(
+  dirname(old_files),
+  sub(paste0(curr_var, "_", curr_var, "_"), paste0(curr_var, "_"), basename(old_files), fixed = TRUE)
+)
 
-
+data.frame(from = basename(old_files), to = basename(new_files))
+file.rename(from = old_files, to = new_files)

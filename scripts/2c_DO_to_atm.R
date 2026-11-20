@@ -2,32 +2,30 @@
 library(tidyverse)
 library(here)
 library(terra)
-library(doParallel)
-library(foreach)
 source("functions/oxy_demand_functions.R")
 
-#parallel
-cl <- makeCluster(8)
-
-clusterEvalQ(cl, {
-  library(tidyverse)
-  library(here)
-  library(terra)
-  library(doParallel)
-  library(foreach)
-})
-
-clusterExport(cl, "do_to_atm")
-
-registerDoParallel(cl)
 
 #locate DO mmol/L, temp, and salinity files 
 do_mmol_m3_files <- grep(list.files(here("data/enviro/merc/regrid/o2"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE) 
+
+do_mmol_m3_files <- do_mmol_m3_files[
+  str_detect(do_mmol_m3_files, "2022") | str_detect(do_mmol_m3_files, "2023") | str_detect(do_mmol_m3_files, "2024") | str_detect(do_mmol_m3_files, "2025")
+]
+
 temp_files <- grep(list.files(here("data/enviro/merc/regrid/T"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE)
+
+temp_files <- temp_files[
+  str_detect(temp_files, "2022") | str_detect(temp_files, "2023") | str_detect(temp_files, "2024") | str_detect(temp_files, "2025")
+]
+
 sal_files <- grep(list.files(here("data/enviro/merc/regrid/S"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE)
 
+sal_files <- sal_files[
+  str_detect(sal_files, "2022") | str_detect(sal_files, "2023") | str_detect(sal_files, "2024") | str_detect(sal_files, "2025")
+]
+
 #loop through convert to atm 
-foreach (i=1:length(do_mmol_m3_files)) %dopar% {
+for (i in 1:length(do_mmol_m3_files)) {
   #load all files needed for atm conversion
   do_file = rast(do_mmol_m3_files[i])
   temp_file = rast(temp_files[i])
@@ -55,5 +53,3 @@ foreach (i=1:length(do_mmol_m3_files)) %dopar% {
 } else {paste0("ERROR DO: ", do_range, " T: ", temp_range, " S: ", sal_range)}
 
 }
-
-stopCluster(cl)
