@@ -52,7 +52,7 @@ stopCluster(cl)
 
 
 #rename files in a regrid folder to get rid of duplicate var name
-curr_var <- "2D"
+curr_var <- "MLD"
 folder_path <- paste0("data/enviro/merc/regrid/", curr_var)
 
 old_files <- list.files(path = folder_path, pattern = paste0(curr_var, "_", curr_var, "_"), full.names = TRUE)
