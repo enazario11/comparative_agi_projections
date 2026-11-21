@@ -36,21 +36,12 @@ clusterEvalQ(cl, {
   library(sf)
 })
 
-clusterExport(cl, varlist = c("depth_var_vect_all", "alb", "blu", "mako", "swo", "getvarGLORYS"))
-registerDoParallel(cl)
-
 #extract all depth x variable combinations for each species
 #albacore
-alb_enviro_temp <- data.frame(x = 1:nrow(alb))
-clusterExport(cl, varlist = c("depth_var_vect_all", "alb", "alb_enviro_temp", "getvarGLORYS"))
-registerDoParallel(cl)
-
-alb_enviro <- foreach (i=1:nrow(depth_var_vect_all), .combine = cbind) %dopar% {
+for (i in 1:nrow(depth_var_vect_all)){
 
     depth = depth_var_vect_all$depth[i]
     var = depth_var_vect_all$var[i]
-
-    cat(sprintf("Completed %d\n", i), file = "progress.txt", append = TRUE)
 
     if(var != "AGI"){ 
       enviro_folder = "data/enviro/merc/regrid/"
@@ -58,13 +49,11 @@ alb_enviro <- foreach (i=1:nrow(depth_var_vect_all), .combine = cbind) %dopar% {
       enviro_folder = "data/enviro/agi/alb"
     }
 
-    alb_enviro_col <- getvarGLORYS(loc_dat = alb, enviro_folder = enviro_folder, depth = depth, col_name = var)
-    alb_enviro_temp[paste0(var, "_", depth, "m")] <- alb_enviro_col[,1]
-  }
+    enviro_col_out <- getvarGLORYS_par(loc_dat = alb, enviro_folder = enviro_folder, depth = depth, col_name = var)
+    alb[[paste0(var,"_", depth,"m")]] <- enviro_col_out[[1]] 
+}
 
-stopCluster(cl)
-alb_enviro_df <- cbind(alb, alb_enviro)
-saveRDS(alb_enviro_df, here("data/loc_enviro/alb_enviro.rds"))
+saveRDS(alb, here("data/loc_enviro/alb_enviro.rds"))
 
 #blue
 for (i in 1:nrow(depth_var_vect_all)){
