@@ -18,7 +18,7 @@ depth_tbl <- data.frame(
   nominal = depth_vect_name
 )
 depth_vect_2d = 1
-date_vect = seq(as.Date("2023-01-01"), as.Date("2025-12-31"), by = "6 months")
+date_vect = seq(as.Date("2002-01-01"), as.Date("2002-12-31"), by = "6 months")
 
 depth_date_vect = merge(depth_tbl, data.frame(date = date_vect), by = NULL)
 depth_date_vect_2d = expand.grid(depth = depth_vect_2d, date = date_vect)

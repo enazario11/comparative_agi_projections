@@ -8,21 +8,27 @@ source("functions/oxy_demand_functions.R")
 #locate DO mmol/L, temp, and salinity files 
 do_mmol_m3_files <- grep(list.files(here("data/enviro/merc/regrid/o2"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE) 
 
-do_mmol_m3_files <- do_mmol_m3_files[
-  str_detect(do_mmol_m3_files, "2022") | str_detect(do_mmol_m3_files, "2023") | str_detect(do_mmol_m3_files, "2024") | str_detect(do_mmol_m3_files, "2025")
-]
+do_mmol_m3_files <- do_mmol_m3_files[str_detect(do_mmol_m3_files, "2002")]
+
+# do_mmol_m3_files <- do_mmol_m3_files[
+#   str_detect(do_mmol_m3_files, "2022") | str_detect(do_mmol_m3_files, "2023") | str_detect(do_mmol_m3_files, "2024") | str_detect(do_mmol_m3_files, "2025")
+# ]
 
 temp_files <- grep(list.files(here("data/enviro/merc/regrid/T"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE)
 
-temp_files <- temp_files[
-  str_detect(temp_files, "2022") | str_detect(temp_files, "2023") | str_detect(temp_files, "2024") | str_detect(temp_files, "2025")
-]
+temp_files <- temp_files[str_detect(temp_files, "2002")] 
+
+# temp_files <- temp_files[
+#   str_detect(temp_files, "2022") | str_detect(temp_files, "2023") | str_detect(temp_files, "2024") | str_detect(temp_files, "2025")
+# ]
 
 sal_files <- grep(list.files(here("data/enviro/merc/regrid/S"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE)
 
-sal_files <- sal_files[
-  str_detect(sal_files, "2022") | str_detect(sal_files, "2023") | str_detect(sal_files, "2024") | str_detect(sal_files, "2025")
-]
+sal_files <- sal_files[str_detect(sal_files, "2002")]
+
+# sal_files <- sal_files[
+#   str_detect(sal_files, "2022") | str_detect(sal_files, "2023") | str_detect(sal_files, "2024") | str_detect(sal_files, "2025")
+# ]
 
 #loop through convert to atm 
 for (i in 1:length(do_mmol_m3_files)) {

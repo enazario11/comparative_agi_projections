@@ -50,7 +50,6 @@ parLapply(cl, temp_files, stars_to_terra, nc_var_name = "vomecrty", var_abbrv = 
 parLapply(cl, temp_files, stars_to_terra, nc_var_name = "sometauy", var_abbrv = "svstr", file_2D = TRUE)
 stopCluster(cl)
 
-
 #rename files in a regrid folder to get rid of duplicate var name
 curr_var <- "MLD"
 folder_path <- paste0("data/enviro/merc/regrid/", curr_var)

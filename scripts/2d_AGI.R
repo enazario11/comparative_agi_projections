@@ -54,21 +54,27 @@ swo_night_agi <- list(
 #locate DO mmol/L, temp, and salinity files 
 do_files <- list.files(here("data/enviro/merc/regrid/o2_atm"), full.names = TRUE)
 
-do_files <- do_files[
-  str_detect(do_files, "2022") | str_detect(do_files, "2023") | str_detect(do_files, "2024") | str_detect(do_files, "2025")
-]
+do_files <- do_files[str_detect(do_files, "2002")]
+
+# do_files <- do_files[
+#   str_detect(do_files, "2022") | str_detect(do_files, "2023") | str_detect(do_files, "2024") | str_detect(do_files, "2025")
+# ]
 
 temp_files <- grep(list.files(here("data/enviro/merc/regrid/T"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE)
 
-temp_files <- temp_files[
-  str_detect(temp_files, "2022") | str_detect(temp_files, "2023") | str_detect(temp_files, "2024") | str_detect(temp_files, "2025")
-]
+temp_files <- temp_files[str_detect(temp_files, "2002")]
+
+# temp_files <- temp_files[
+#   str_detect(temp_files, "2022") | str_detect(temp_files, "2023") | str_detect(temp_files, "2024") | str_detect(temp_files, "2025")
+# ]
 
 sal_files <- grep(list.files(here("data/enviro/merc/regrid/S"), full.names = TRUE), pattern = "depth_140m", invert = TRUE, value = TRUE)
 
-sal_files <- sal_files[
-  str_detect(sal_files, "2022") | str_detect(sal_files, "2023") | str_detect(sal_files, "2024") | str_detect(sal_files, "2025")
-]
+sal_files <- sal_files[str_detect(sal_files, "2002")]
+
+# sal_files <- sal_files[
+#   str_detect(sal_files, "2022") | str_detect(sal_files, "2023") | str_detect(sal_files, "2024") | str_detect(sal_files, "2025")
+# ]
 
 agi_rast <- function(sp_name, sp_list, do_file, temp_file, sal_file) {
     #load all files needed for atm conversion
