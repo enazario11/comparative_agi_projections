@@ -129,3 +129,10 @@ for (i in 1:nrow(depth_var_vect_all)){
 }
 
 saveRDS(swo_night, here("data/loc_enviro/swo_night_enviro.rds"))
+
+# add bathymetry and rugosity 
+alb <- readRDS(here("data/loc_enviro/alb_enviro.rds"))
+blu <- readRDS(here("data/loc_enviro/blu_enviro.rds"))
+mako <- readRDS(here("data/loc_enviro/mako_enviro.rds"))
+swo_day <- readRDS(here("data/loc_enviro/swo_day_enviro.rds"))
+swo_night <- readRDS(here("data/loc_enviro/swo_night_enviro.rds"))

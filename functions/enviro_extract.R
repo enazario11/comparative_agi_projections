@@ -46,3 +46,41 @@ getvarGLORYS_par <- function(loc_dat, enviro_folder, depth, col_name){
 
   return(loc_dat[,paste0(col_name, depth)])
 }
+
+
+getBathy <- function(nc,inpts,bathy_inpt,desired.resolution){
+  
+  if ((desired.resolution*10) %% 2 == 0) stop("Desired Resolution must be an odd number (e.g. 0.3 not 0.2)")
+  nc.data <- nc_open(nc, write=FALSE)
+  
+  lat <- ncvar_get(nc.data,'latitude') #change to lat and lon here if I don't need to change the crs and res of the nc file
+  lon <- ncvar_get(nc.data,'longitude')
+  nrows <- length(lat); ncols <- length(lon)
+  desired.resolution = 0.25
+  desired.resolution = desired.resolution/2
+  
+  for (i in 1:nrow(inpts)){
+    print(i)
+    #print(i)
+    # #Compute bathymetry: point extraction
+    # c <- which.min(abs(lon-data$lon[i]))
+    # r <- which.min(abs(lat-data$lat[i]))
+    # data.var  <-  ncvar_get(nc.data,'altitude',start=c(c,r),count=c(1,1),verbose=FALSE)
+    
+    #Compute Bathymetry & rugosity
+    c <- which.min(abs(lon-inpts$lon[i]))
+    c_low <- which.min(abs(lon-(inpts$lon[i]-desired.resolution)))
+    c_up <- which.min(abs(lon-(inpts$lon[i]+desired.resolution)))
+    r <- which.min(abs(lat-inpts$lat[i]))
+    r_low <- which.min(abs(lat-(inpts$lat[i]-desired.resolution)))
+    r_up <- which.min(abs(lat-(inpts$lat[i]+desired.resolution)))
+    numcols=abs(c_up-c_low)+1; numrows=abs(r_up-r_low)+1
+    #change var below to 'elevation' if I don't need to change the res and CRS of the nc file
+    data.var  <-  ncvar_get(nc.data, varid = bathy_inpt, start=c(c_low,r_low),count=c(numcols,numrows),verbose=FALSE)
+    data.var <- data.var[data.var < 0]
+    inpts$bathy[i] <- mean(data.var, na.rm=T)
+    inpts$bathy_sd[i] <- sd(data.var, na.rm=T)
+  }
+  nc_close(nc.data)
+  return(inpts)
+}
