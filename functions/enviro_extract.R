@@ -48,39 +48,41 @@ getvarGLORYS_par <- function(loc_dat, enviro_folder, depth, col_name){
 }
 
 
-getBathy <- function(nc,inpts,bathy_inpt,desired.resolution){
+getbathy_par <- function(loc_dat, agg_factor){
+   
+  cache_name <- "full_rast_bathy"
+  mean_cache <-"mean_bathy"
+  sd_cache <- "sd_bathy"
+  loc_dat[["bathy"]] <- NA
+  loc_dat[["rugosity"]] <- NA
+
+  enviro_files <- list.files(here("data/enviro/bathy"), full.names = TRUE, pattern = "sub_0m")
   
-  if ((desired.resolution*10) %% 2 == 0) stop("Desired Resolution must be an odd number (e.g. 0.3 not 0.2)")
-  nc.data <- nc_open(nc, write=FALSE)
-  
-  lat <- ncvar_get(nc.data,'latitude') #change to lat and lon here if I don't need to change the crs and res of the nc file
-  lon <- ncvar_get(nc.data,'longitude')
-  nrows <- length(lat); ncols <- length(lon)
-  desired.resolution = 0.25
-  desired.resolution = desired.resolution/2
-  
-  for (i in 1:nrow(inpts)){
-    print(i)
-    #print(i)
-    # #Compute bathymetry: point extraction
-    # c <- which.min(abs(lon-data$lon[i]))
-    # r <- which.min(abs(lat-data$lat[i]))
-    # data.var  <-  ncvar_get(nc.data,'altitude',start=c(c,r),count=c(1,1),verbose=FALSE)
-    
-    #Compute Bathymetry & rugosity
-    c <- which.min(abs(lon-inpts$lon[i]))
-    c_low <- which.min(abs(lon-(inpts$lon[i]-desired.resolution)))
-    c_up <- which.min(abs(lon-(inpts$lon[i]+desired.resolution)))
-    r <- which.min(abs(lat-inpts$lat[i]))
-    r_low <- which.min(abs(lat-(inpts$lat[i]-desired.resolution)))
-    r_up <- which.min(abs(lat-(inpts$lat[i]+desired.resolution)))
-    numcols=abs(c_up-c_low)+1; numrows=abs(r_up-r_low)+1
-    #change var below to 'elevation' if I don't need to change the res and CRS of the nc file
-    data.var  <-  ncvar_get(nc.data, varid = bathy_inpt, start=c(c_low,r_low),count=c(numcols,numrows),verbose=FALSE)
-    data.var <- data.var[data.var < 0]
-    inpts$bathy[i] <- mean(data.var, na.rm=T)
-    inpts$bathy_sd[i] <- sd(data.var, na.rm=T)
+  doParallel::registerDoParallel(cl)
+
+  enviro_col <- foreach(i=1:nrow(loc_dat), .combine = rbind, .export = c("enviro_files", "loc_dat", "agg_factor", "cache_name", "mean_cache", "sd_cache")) %dopar% {
+        
+        if (i %% 500 == 0) {
+          try(cat("Completed", i, cache_name, "\n",
+              file = paste0("progress_", Sys.getpid(), ".txt"), append = TRUE),
+              silent = TRUE)
+        }
+
+        if (!exists(cache_name, envir = .GlobalEnv, inherits = FALSE)) {
+          full_rast <- terra::rast(enviro_files)
+          assign(cache_name, full_rast, envir = .GlobalEnv)
+          assign(mean_cache, terra::aggregate(full_rast, fact = agg_factor, fun = mean, na.rm = TRUE), envir = .GlobalEnv)
+          assign(sd_cache,   terra::aggregate(full_rast, fact = agg_factor, fun = sd,   na.rm = TRUE), envir = .GlobalEnv)
+        }
+
+        bathy_mean <- get(mean_cache, envir = .GlobalEnv)
+        bathy_sd   <- get(sd_cache,   envir = .GlobalEnv)
+
+        extract_bathy <- extract(bathy_mean, vect(loc_dat$geometry[i]))[1,2] 
+        extract_rug <- extract(bathy_sd, vect(loc_dat$geometry[i]))[1,2] 
+
+        data.frame(bathy = extract_bathy, rugosity = extract_rug)
   }
-  nc_close(nc.data)
-  return(inpts)
+   
+  return(enviro_col)
 }
