@@ -56,7 +56,7 @@ for(i in 1:nrow(depth_date_vect_2d)){
 
   cmem_nc(cmem_id = "cmems_mod_glo_bgc_my_0.25deg_P1D-m",
           out_directory = here("data/enviro/cmem/chl_temp"), 
-          out_file = paste0("chl_", start, "_", end, "_", "depth_", depth,"m", "_0.25_D.nc"),
+          out_file = paste0("chl_", start, "_", end, "_", "depth_", "0m", "_0.25_D.nc"),
           cmem_var = "chl",
           start_date = paste0(start,"T00:00:00"),
           end_date = paste0(end,"T00:00:00"), 

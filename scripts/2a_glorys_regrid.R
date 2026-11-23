@@ -38,7 +38,7 @@ stopCluster(cl)
 
   #U, eastward surface velocity (to later calculate EKE) and wind stress
 temp_files <- list.files(here("data/enviro/merc/raw/U"), full.names = TRUE)
-parLapply(cl, temp_files, stars_to_terra, nc_var_name = "vozocrtx", var_abbrv = "su") 
+parLapply(cl, temp_files, stars_to_terra, nc_var_name = "vozocrtx", var_abbrv = "su", file_2D = TRUE) 
 
 parLapply(cl, temp_files, stars_to_terra, nc_var_name = "sozotaux", var_abbrv = "sustr", file_2D = TRUE)
 stopCluster(cl)
@@ -51,13 +51,13 @@ parLapply(cl, temp_files, stars_to_terra, nc_var_name = "sometauy", var_abbrv = 
 stopCluster(cl)
 
 #rename files in a regrid folder to get rid of duplicate var name
-curr_var <- "MLD"
+curr_var <- "su"
 folder_path <- paste0("data/enviro/merc/regrid/", curr_var)
 
-old_files <- list.files(path = folder_path, pattern = paste0(curr_var, "_", curr_var, "_"), full.names = TRUE)
+old_files <- list.files(path = folder_path, pattern = paste0(curr_var, "_", "U", "_"), full.names = TRUE)
 new_files <- file.path(
   dirname(old_files),
-  sub(paste0(curr_var, "_", curr_var, "_"), paste0(curr_var, "_"), basename(old_files), fixed = TRUE)
+  sub(paste0(curr_var, "_", "U", "_"), paste0(curr_var, "_"), basename(old_files), fixed = TRUE)
 )
 
 data.frame(from = basename(old_files), to = basename(new_files))
