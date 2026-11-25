@@ -123,9 +123,9 @@ for (i in 1:nrow(depth_var_vect_all)){
 saveRDS(swo_night, here("data/loc_enviro/SSF/swo_night_enviro.rds"))
 
 # add bathymetry and rugosity 
-blu <- readRDS(here("data/loc_enviro/blu_enviro.rds"))
-swo_day <- readRDS(here("data/loc_enviro/swo_day_enviro.rds"))
-swo_night <- readRDS(here("data/loc_enviro/swo_night_enviro.rds"))
+blu <- readRDS(here("data/loc_enviro/SSF/blu_enviro.rds"))
+swo_day <- readRDS(here("data/loc_enviro/SSF/swo_day_enviro.rds"))
+swo_night <- readRDS(here("data/loc_enviro/SSF/swo_night_enviro.rds"))
 
 bathy <- rast(here("data/enviro/bathy/gebco_2026_n55.0_s0.0_w-170.0_e-100.0.nc")) %>% clamp(upper = 0, values = FALSE)
 # writeCDF(bathy, here("data/enviro/bathy/bathy_sub_0m.nc"))
@@ -133,21 +133,21 @@ bathy <- rast(here("data/enviro/bathy/gebco_2026_n55.0_s0.0_w-170.0_e-100.0.nc")
 agg_factor <- round(0.25/res(bathy)[1])
 
 #blue
-blu_bathy_out <- getbathy_par_ssf(loc_dat = blu, agg_factor = agg_factor)
+blu_bathy_out <- getbathy_par(loc_dat = blu, agg_factor = agg_factor)
 blu[["bathy"]] <- blu_bathy_out[[1]] 
 blu[["rugosity"]] <- blu_bathy_out[[2]] 
 
 saveRDS(blu, here("data/loc_enviro/SSF/blu_enviro_bathy.rds"))
 
 #swordfish day
-swo_day_bathy_out <- getbathy_par_ssf(loc_dat = swo_day, agg_factor = agg_factor)
+swo_day_bathy_out <- getbathy_par(loc_dat = swo_day, agg_factor = agg_factor)
 swo_day[["bathy"]] <- swo_day_bathy_out[[1]] 
 swo_day[["rugosity"]] <- swo_day_bathy_out[[2]] 
 
-saveRDS(swo_day, here("data/loc_enviro/swo_day_enviro_bathy.rds"))
+saveRDS(swo_day, here("data/loc_enviro/SSF/swo_day_enviro_bathy.rds"))
 
 #swordfish night
-swo_night_bathy_out <- getbathy_par_ssf(loc_dat = swo_night, agg_factor = agg_factor)
+swo_night_bathy_out <- getbathy_par(loc_dat = swo_night, agg_factor = agg_factor)
 swo_night[["bathy"]] <- swo_night_bathy_out[[1]] 
 swo_night[["rugosity"]] <- swo_night_bathy_out[[2]] 
 
